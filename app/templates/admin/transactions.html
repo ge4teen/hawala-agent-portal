@@ -117,8 +117,10 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <div class="fw-bold">ZAR {{ "%.2f"|format(tx.amount_local) }}</div>
-                                    <small class="text-success">${{ "%.2f"|format(tx.amount_foreign) if tx.amount_foreign else '0.00' }}</small>
+                                    <div class="fw-bold">{{ tx.currency_code }} {{ "%.2f"|format(tx.amount_local) }}</div>
+                                    {% if tx.currency_code != 'USD' and tx.amount_foreign %}
+                                    <small class="text-success">${{ "%.2f"|format(tx.amount_foreign) }}</small>
+                                    {% endif %}
                                 </td>
 
                                 <td>
@@ -129,28 +131,34 @@
                                     {% elif tx.status == 'cancelled' %}
                                         <span class="badge bg-danger">Cancelled</span>
                                     {% else %}
-                                        <span class="badge bg-secondary">{{ tx.status }}</span>
+                                        <span class="badge bg-secondary">{{ tx.status|title }}</span>
                                     {% endif %}
                                 </td>
 
                                 <td>
-                                    {% if tx.available_to_all == 1 %}
+                                    {% if tx.available_to_all %}
                                         <span class="badge bg-info">
                                             <i class="fas fa-users"></i> Available to All
                                         </span>
-                                    {% elif tx.agent_name %}
-                                        <span class="badge bg-primary">{{ tx.agent_name }}</span>
+                                    {% elif tx.agent %}
+                                        <span class="badge bg-primary">{{ tx.agent.full_name if tx.agent.full_name else tx.agent.username }}</span>
                                     {% else %}
                                         <span class="badge bg-secondary">Unassigned</span>
                                     {% endif %}
                                 </td>
 
                                 <td>
-                                    <small>{{ tx.timestamp[:10] if tx.timestamp else '' }}</small>
+                                    <!-- FIXED: Changed from tx.timestamp[:10] to proper datetime formatting -->
+                                    <small>{{ tx.timestamp.strftime('%Y-%m-%d') if tx.timestamp else '' }}</small>
                                 </td>
 
                                 <td>
                                     <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('admin.view_transaction', txid=tx.transaction_id) }}"
+                                           class="btn btn-outline-info"
+                                           title="View">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
                                         <a href="{{ url_for('admin.edit_transaction', txid=tx.transaction_id) }}"
                                            class="btn btn-outline-primary"
                                            title="Edit">
@@ -214,6 +222,9 @@
     min-width: 50px;
     justify-content: center;
     font-weight: bold;
+}
+.btn-group-sm .btn {
+    padding: 0.25rem 0.5rem;
 }
 </style>
 
@@ -297,8 +308,28 @@ document.addEventListener('DOMContentLoaded', function() {
 // Copy Transaction ID to clipboard
 function copyToClipboard(fullTxid) {
     navigator.clipboard.writeText(fullTxid).then(function() {
-        // Show simple alert
-        alert('Transaction ID copied: ' + fullTxid);
+        // Show toast notification instead of alert
+        const toast = document.createElement('div');
+        toast.className = 'position-fixed bottom-0 end-0 p-3';
+        toast.style.zIndex = '11';
+        toast.innerHTML = `
+            <div class="toast show" role="alert">
+                <div class="toast-header bg-success text-white">
+                    <strong class="me-auto">Copied!</strong>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+                </div>
+                <div class="toast-body">
+                    Transaction ID copied:<br>
+                    <code>${fullTxid}</code>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+
+        // Remove toast after 3 seconds
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
     }).catch(function(err) {
         console.error('Failed to copy: ', err);
         alert('Failed to copy Transaction ID');
