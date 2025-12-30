@@ -1,0 +1,16 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<h2>Create Agent</h2>
+<form method="post">
+  <input name="full_name" placeholder="Full name" required>
+  <input name="username" placeholder="Username" required>
+  <input name="password" placeholder="Password" required>
+  <select name="branch_id">
+    <option value="">-- Branch --</option>
+    {% for b in branches %}
+    <option value="{{ b.id }}">{{ b.name }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit">Create</button>
+</form>
+{% endblock %}

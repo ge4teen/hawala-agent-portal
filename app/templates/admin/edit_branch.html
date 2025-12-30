@@ -1,0 +1,120 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-6 mx-auto">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-store me-2"></i>
+                            {% if branch %}Edit Branch{% else %}Add New Branch{% endif %}
+                        </h4>
+                        <a href="{{ url_for('admin.branches') }}" class="btn btn-light btn-sm">
+                            <i class="fas fa-arrow-left me-1"></i> Back
+                        </a>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        <!-- Branch Name -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Branch Name *</label>
+                            <input type="text" name="name" class="form-control"
+                                   value="{{ branch.name if branch else '' }}" required
+                                   placeholder="e.g., Johannesburg Main">
+                        </div>
+
+                        <!-- Location -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Location</label>
+                            <input type="text" name="location" class="form-control"
+                                   value="{{ branch.location if branch else '' }}"
+                                   placeholder="e.g., Sandton City, Johannesburg">
+                            <small class="text-muted">Physical location or address</small>
+                        </div>
+
+                        <!-- Rate Override -->
+                        <div class="mb-4">
+                            <label class="form-label fw-semibold">Rate Override (Optional)</label>
+                            <input type="number" step="0.0001" name="rate_override" class="form-control"
+                                   value="{{ branch.rate_override if branch and branch.rate_override else '' }}"
+                                   placeholder="e.g., 18.75">
+                            <small class="text-muted">
+                                Custom exchange rate for this branch. Leave empty to use system rate.
+                                Current system rate: {{ "%.4f"|format(latest_rate.rate) if latest_rate else "N/A" }}
+                            </small>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('admin.branches') }}" class="btn btn-secondary">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if branch %}
+                                <i class="fas fa-save me-1"></i> Update Branch
+                                {% else %}
+                                <i class="fas fa-plus me-1"></i> Create Branch
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Current Branch Info (Edit mode only) -->
+            {% if branch %}
+            <div class="card mt-3">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Branch Information
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th width="40%">Branch ID:</th>
+                            <td>{{ branch.id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Created:</th>
+                            <td>{{ branch.created_at|format_datetime if branch.created_at else 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Last Updated:</th>
+                            <td>{{ branch.updated_at|format_datetime if branch.updated_at else 'N/A' }}</td>
+                        </tr>
+                        <tr>
+                            <th>Transactions:</th>
+                            <td>
+                                {% set tx_count = branch_transaction_count if branch_transaction_count else 0 %}
+                                <span class="badge bg-info">{{ tx_count }}</span>
+                                {% if tx_count > 0 %}
+                                <small class="text-muted ms-2">(Cannot delete with transactions)</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.card-header {
+    border-bottom: none;
+}
+.form-control:focus {
+    border-color: #4dabf7;
+    box-shadow: 0 0 0 0.2rem rgba(77, 171, 247, 0.25);
+}
+</style>
+{% endblock %}

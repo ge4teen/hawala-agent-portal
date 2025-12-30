@@ -1,0 +1,411 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="fw-bold mb-0">
+            <i class="fas fa-edit text-primary me-2"></i>
+            Edit Transaction
+        </h2>
+        <div>
+            <span class="badge bg-dark fs-6 px-3 py-2">
+                <i class="fas fa-hashtag me-1"></i>
+                {{ tx.transaction_id }}
+            </span>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-pencil-alt me-2"></i>
+                        Transaction Details
+                    </h5>
+                </div>
+                <div class="card-body p-4">
+                    <form method="post" id="editForm">
+                        <!-- ADD THESE HIDDEN FIELDS -->
+                        <input type="hidden" name="confirmed" value="true">
+
+                        <!-- Basic Information -->
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-user me-2"></i>
+                                    Sender Information
+                                </h6>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sender Name *</label>
+                                    <input type="text" name="sender_name" class="form-control"
+                                           value="{{ tx.sender_name or '' }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Sender Phone</label>
+                                    <input type="text" name="sender_phone" class="form-control"
+                                           value="{{ tx.sender_phone or '' }}">
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <h6 class="border-bottom pb-2 mb-3">
+                                    <i class="fas fa-user-check me-2"></i>
+                                    Receiver Information
+                                </h6>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Receiver Name *</label>
+                                    <input type="text" name="receiver_name" class="form-control"
+                                           value="{{ tx.receiver_name or '' }}" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-semibold">Receiver Phone</label>
+                                    <input type="text" name="receiver_phone" class="form-control"
+                                           value="{{ tx.receiver_phone or '' }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Amount & Currency -->
+                        <div class="card border-info mb-4">
+                            <div class="card-header bg-info bg-opacity-10 border-info py-2">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-money-bill-wave me-2"></i>
+                                    Amount & Currency
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Amount (ZAR) *</label>
+                                        <div class="input-group mb-3">
+                                            <span class="input-group-text bg-light">ZAR</span>
+                                            <input type="number" name="amount_local" class="form-control"
+                                                   step="0.01" min="0" value="{{ tx.amount_local or 0 }}" required>
+                                        </div>
+                                        <small class="text-muted">Amount in South African Rand</small>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Currency *</label>
+                                        <select name="currency_code" class="form-select" required>
+                                            {% for c in currencies %}
+                                            <option value="{{ c.code }}"
+                                                    {% if tx.currency_code == c.code %}selected{% endif %}>
+                                                {{ c.code }} - {{ c.name or '' }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Display USD Equivalent -->
+                                <div class="alert alert-light mt-3">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <small class="text-muted">USD Equivalent:</small>
+                                            <div class="fw-bold text-success">
+                                                ${{ "%.2f"|format(tx.amount_foreign) if tx.amount_foreign else "0.00" }}
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <small class="text-muted">Exchange Rate:</small>
+                                            <div class="fw-bold">
+                                                {% if tx.amount_local and tx.amount_foreign and tx.amount_foreign > 0 %}
+                                                    1 USD = {{ (tx.amount_local / tx.amount_foreign)|round(4) }} ZAR
+                                                {% else %}
+                                                    Rate not calculated
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Method & Notes -->
+                        <div class="card border-warning mb-4">
+                            <div class="card-header bg-warning bg-opacity-10 border-warning py-2">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-credit-card me-2"></i>
+                                    Payment & Additional Information
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Payment Method</label>
+                                        <select name="payment_method" class="form-select">
+                                            <option value="cash" {% if tx.payment_method =='cash' %}selected{% endif %}>Cash</option>
+                                            <option value="bank_transfer" {% if tx.payment_method =='bank_transfer' %}selected{% endif %}>Bank Transfer</option>
+                                            <option value="card" {% if tx.payment_method =='card' %}selected{% endif %}>Card</option>
+                                            <option value="mobile_money" {% if tx.payment_method =='mobile_money' %}selected{% endif %}>Mobile Money</option>
+                                            <option value="other" {% if tx.payment_method =='other' %}selected{% endif %}>Other</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Status</label>
+                                        <select name="status" class="form-select">
+                                            <option value="pending" {% if tx.status =='pending' %}selected{% endif %}>⏳ Pending</option>
+                                            <option value="completed" {% if tx.status =='completed' %}selected{% endif %}>✅ Completed</option>
+                                            <option value="cancelled" {% if tx.status =='cancelled' %}selected{% endif %}>❌ Cancelled</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <label class="form-label fw-semibold">Notes / Special Instructions</label>
+                                    <textarea name="notes" class="form-control" rows="3"
+                                              placeholder="Enter any special instructions or notes...">{{ tx.notes or '' }}</textarea>
+                                    <small class="text-muted">Optional: Any additional information about this transaction</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Assignment & Branch -->
+                        <div class="card border-success mb-4">
+                            <div class="card-header bg-success bg-opacity-10 border-success py-2">
+                                <h6 class="mb-0">
+                                    <i class="fas fa-users me-2"></i>
+                                    Assignment & Branch
+                                </h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Assign to Agent</label>
+                                        <select name="agent_id" class="form-select">
+                                            <option value="">-- Unassigned --</option>
+                                            {% for ag in agents %}
+                                            <option value="{{ ag.id }}"
+                                                    {% if tx.agent_id == ag.id %}selected{% endif %}>
+                                                {{ ag.full_name or ag.username }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-semibold">Branch</label>
+                                        <select name="branch_id" class="form-select">
+                                            <option value="">-- No Branch --</option>
+                                            {% for b in branches %}
+                                            <option value="{{ b.id }}"
+                                                    {% if tx.branch_id == b.id %}selected{% endif %}>
+                                                {{ b.name }}
+                                            </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div class="mt-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox"
+                                               name="available_to_all" value="1"
+                                               id="available_to_all"
+                                               {% if tx.available_to_all == 1 %}checked{% endif %}>
+                                        <label class="form-check-label fw-semibold" for="available_to_all">
+                                            Make available to all agents
+                                        </label>
+                                        <small class="text-muted d-block">
+                                            If checked, any agent can pick this transaction. If unchecked, it will be assigned to the selected agent only.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex justify-content-between align-items-center pt-3 border-top">
+                            <div>
+                                <a href="{{ url_for('admin.transactions') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i>
+                                    Cancel
+                                </a>
+                            </div>
+                            <div>
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i class="fas fa-save me-1"></i>
+                                    Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar - Transaction Summary -->
+        <div class="col-lg-4">
+            <div class="card shadow-sm border-0 sticky-top" style="top: 20px;">
+                <div class="card-header bg-dark text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Transaction Summary
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6 class="text-muted mb-2">Transaction ID</h6>
+                        <div class="alert alert-dark">
+                            <code class="fs-6">{{ tx.transaction_id }}</code>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-muted mb-2">Current Status</h6>
+                        <div class="d-flex align-items-center">
+                            {% if tx.status == 'pending' %}
+                                <span class="badge bg-warning fs-6 px-3 py-2">
+                                    <i class="fas fa-clock me-1"></i> Pending
+                                </span>
+                            {% elif tx.status == 'completed' %}
+                                <span class="badge bg-success fs-6 px-3 py-2">
+                                    <i class="fas fa-check-circle me-1"></i> Completed
+                                </span>
+                            {% elif tx.status == 'cancelled' %}
+                                <span class="badge bg-danger fs-6 px-3 py-2">
+                                    <i class="fas fa-times-circle me-1"></i> Cancelled
+                                </span>
+                            {% endif %}
+
+                            {% if tx.completed_by %}
+                            <div class="ms-3">
+                                <small class="text-muted d-block">Completed by:</small>
+                                <strong>{{ completed_by_name or 'Unknown' }}</strong>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-muted mb-2">Amount Summary</h6>
+                        <div class="alert alert-light">
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>ZAR Amount:</span>
+                                <strong class="text-primary">ZAR {{ "%.2f"|format(tx.amount_local) if tx.amount_local else "0.00" }}</strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>USD Amount:</span>
+                                <strong class="text-success">${{ "%.2f"|format(tx.amount_foreign) if tx.amount_foreign else "0.00" }}</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-muted mb-2">Payment Method</h6>
+                        <div>
+                            {% if tx.payment_method == 'cash' %}
+                                <span class="badge bg-primary p-2"><i class="fas fa-money-bill me-1"></i> Cash</span>
+                            {% elif tx.payment_method == 'bank_transfer' %}
+                                <span class="badge bg-info p-2"><i class="fas fa-university me-1"></i> Bank Transfer</span>
+                            {% elif tx.payment_method == 'card' %}
+                                <span class="badge bg-success p-2"><i class="fas fa-credit-card me-1"></i> Card</span>
+                            {% elif tx.payment_method == 'mobile_money' %}
+                                <span class="badge bg-purple p-2"><i class="fas fa-mobile-alt me-1"></i> Mobile Money</span>
+                            {% else %}
+                                <span class="badge bg-secondary p-2">{{ tx.payment_method|title }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-muted mb-2">Timestamps</h6>
+                        <ul class="list-unstyled">
+                            {% if tx.timestamp %}
+                            <li class="mb-1">
+                                <small>Created:</small>
+                                <div class="fw-semibold">{{ tx.timestamp|format_date if tx.timestamp else 'N/A' }}</div>
+                            </li>
+                            {% endif %}
+
+                            {% if tx.completed_at %}
+                            <li class="mb-1">
+                                <small>Completed:</small>
+                                <div class="fw-semibold">{{ tx.completed_at|format_date if tx.completed_at else 'N/A' }}</div>
+                            </li>
+                            {% endif %}
+
+                            {% if tx.verified_at %}
+                            <li>
+                                <small>Verified:</small>
+                                <div class="fw-semibold">{{ tx.verified_at|format_date if tx.verified_at else 'N/A' }}</div>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </div>
+
+                    <div class="alert alert-warning mt-4">
+                        <h6 class="alert-heading">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Note
+                        </h6>
+                        <p class="small mb-0">
+                            Changing the amount will automatically recalculate the USD equivalent using the latest exchange rate.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sticky-top {
+    position: sticky;
+    z-index: 1020;
+}
+.card {
+    border-radius: 12px;
+    overflow: hidden;
+}
+.card-header {
+    border-bottom: none;
+}
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+.input-group-text {
+    min-width: 60px;
+}
+.form-control:focus, .form-select:focus {
+    border-color: #4dabf7;
+    box-shadow: 0 0 0 0.2rem rgba(77, 171, 247, 0.25);
+}
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+.badge {
+    border-radius: 8px;
+}
+.alert-light {
+    background-color: #f8f9fa;
+    border: 1px solid #e9ecef;
+}
+</style>
+
+<script>
+// Auto-update USD amount when ZAR amount changes
+document.addEventListener('DOMContentLoaded', function() {
+    const zarInput = document.querySelector('input[name="amount_local"]');
+    const currencySelect = document.querySelector('select[name="currency_code"]');
+    
+    // Form validation
+    const form = document.getElementById('editForm');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            const amount = parseFloat(zarInput.value);
+            if (amount <= 0) {
+                e.preventDefault();
+                alert('Please enter a valid amount greater than 0');
+                zarInput.focus();
+                return false;
+            }
+            return true;
+        });
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,11 @@
+<header class="topbar">
+  <div class="topbar-left">
+    <a href="/" class="brand">ISA_HAWALA</a>
+  </div>
+  <div class="topbar-right">
+    <span class="user">Role: {{ session.get('role') or 'guest' }}</span>
+    {% if session.get('user_id') %}
+      <a class="btn-logout" href="/auth/logout">Logout</a>
+    {% endif %}
+  </div>
+</header>

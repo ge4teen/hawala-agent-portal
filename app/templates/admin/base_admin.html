@@ -1,0 +1,315 @@
+{% extends "base.html" %}
+
+{% block body %}
+<div class="d-flex min-vh-100">
+    <!-- Dark Sidebar -->
+    <div class="isa-sidebar" style="width: 280px;">
+        <!-- Logo Section -->
+        <div class="sidebar-logo">
+            <div class="mb-3">
+                <img src="{{ url_for('static', filename='img/logo.png') }}"
+                     style="max-width: 180px; filter: brightness(0) invert(1);">
+            </div>
+            <h6 class="text-center text-gold mb-1">
+                <i class="fas fa-crown me-1"></i>
+                ADMIN PORTAL
+            </h6>
+            <small class="text-muted">ISA Southern Solutions™</small>
+        </div>
+
+        <!-- Navigation Menu -->
+        <nav class="sidebar-nav">
+            <ul class="nav flex-column">
+                <!-- Dashboard -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.dashboard' %}active{% endif %}"
+                       href="{{ url_for('admin.dashboard') }}">
+                        <i class="fas fa-tachometer-alt me-2"></i>
+                        Dashboard
+                    </a>
+                </li>
+
+                <!-- Transactions -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.transactions' %}active{% endif %}"
+                       href="{{ url_for('admin.transactions') }}">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        Transactions
+                    </a>
+                </li>
+
+                <!-- Users -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.users' %}active{% endif %}"
+                       href="{{ url_for('admin.users') }}">
+                        <i class="fas fa-users me-2"></i>
+                        Users
+                    </a>
+                </li>
+
+                <!-- Agents -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.agents' %}active{% endif %}"
+                       href="{{ url_for('admin.agents') }}">
+                        <i class="fas fa-user-shield me-2"></i>
+                        Agents
+                    </a>
+                </li>
+
+                <!-- Branches -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.branches' %}active{% endif %}"
+                       href="{{ url_for('admin.branches') }}">
+                        <i class="fas fa-code-branch me-2"></i>
+                        Branches
+                    </a>
+                </li>
+
+                <!-- Rates -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.rates' %}active{% endif %}"
+                       href="{{ url_for('admin.rates') }}">
+                        <i class="fas fa-chart-line me-2"></i>
+                        Rates
+                    </a>
+                </li>
+
+                <!-- Logs -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.logs' %}active{% endif %}"
+                       href="{{ url_for('admin.logs') }}">
+                        <i class="fas fa-clipboard-list me-2"></i>
+                        Logs
+                    </a>
+                </li>
+
+                <!-- Reports -->
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'admin.reports_main' %}active{% endif %}"
+                       href="{{ url_for('admin.reports_main') }}">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Reports
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Dollar Balance Summary -->
+            <div class="mt-4 p-3" style="background: rgba(200, 169, 126, 0.1); border-left: 3px solid var(--gold-accent);">
+                <small class="text-uppercase text-gold d-block mb-1">Dollar Balance</small>
+                {% if get_dollar_balance is defined %}
+                    {% set dollar_balance = get_dollar_balance() %}
+                    <h5 class="mb-0 {% if dollar_balance < 0 %}text-danger{% else %}text-success{% endif %}">
+                        ${{ "%.2f"|format(dollar_balance) }}
+                    </h5>
+                {% else %}
+                    <h5 class="mb-0 text-muted">$0.00</h5>
+                {% endif %}
+                <small class="text-muted d-block mt-1">
+                    <i class="fas fa-sync-alt fa-xs me-1"></i>
+                    Live
+                </small>
+            </div>
+        </nav>
+
+        <!-- User Info -->
+        <div class="position-absolute bottom-0 start-0 w-100 p-3 border-top border-secondary">
+            <div class="d-flex align-items-center">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-user-circle fa-2x text-gold"></i>
+                </div>
+                <div class="flex-grow-1 ms-3">
+                    <h6 class="mb-0">{{ session.get('username', 'Admin') }}</h6>
+                    <small class="text-muted">Administrator</small>
+                </div>
+                <a href="{{ url_for('auth.logout') }}" class="text-muted" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content flex-grow-1">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="mb-4">
+                    {% for category, message in messages %}
+                        <div class="isa-alert alert-{{ category }}">
+                            <div class="d-flex align-items-center">
+                                <i class="fas
+                                    {% if category == 'success' %}fa-check-circle text-success
+                                    {% elif category == 'danger' %}fa-exclamation-circle text-danger
+                                    {% elif category == 'warning' %}fa-exclamation-triangle text-warning
+                                    {% else %}fa-info-circle text-info
+                                    {% endif %} me-2"></i>
+                                <div>{{ message }}</div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- Page Header -->
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="section-label mb-1">{% block page_title %}{% endblock %}</h1>
+                <div class="divider"></div>
+                <p class="text-muted mb-0">{% block page_subtitle %}{% endblock %}</p>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="d-flex align-items-center">
+                <span class="me-3 text-gold" id="current-date">
+                    <i class="fas fa-calendar-alt me-1"></i>
+                    Loading...
+                </span>
+                <span class="me-3" id="current-time">
+                    <i class="fas fa-clock me-1"></i>
+                    Loading...
+                </span>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        {% block content %}{% endblock %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom styles for admin interface */
+    .isa-sidebar {
+        background-color: #111111;
+        border-right: 1px solid #333333;
+        position: relative;
+        min-height: 100vh;
+    }
+
+    .sidebar-logo {
+        padding: 2rem 1rem 1.5rem;
+        border-bottom: 1px solid #333333;
+    }
+
+    .sidebar-nav {
+        padding: 1.5rem 1rem;
+        height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+
+    .sidebar-nav::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .sidebar-nav::-webkit-scrollbar-track {
+        background: #222222;
+    }
+
+    .sidebar-nav::-webkit-scrollbar-thumb {
+        background: var(--gold-accent);
+        border-radius: 2px;
+    }
+
+    .main-content {
+        background-color: #000000;
+        padding: 2rem;
+        min-height: 100vh;
+    }
+
+    .nav-link {
+        color: #a0a0a0;
+        padding: 0.75rem 1rem;
+        margin: 0.25rem 0;
+        border-radius: 0;
+        transition: all 0.3s ease;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+
+    .nav-link:hover {
+        color: var(--gold-accent);
+        background-color: rgba(200, 169, 126, 0.1);
+        border-left: 3px solid var(--gold-accent);
+    }
+
+    .nav-link.active {
+        color: var(--gold-accent);
+        background-color: rgba(200, 169, 126, 0.1);
+        border-left: 3px solid var(--gold-accent);
+        font-weight: 600;
+    }
+
+    .nav-link i {
+        width: 20px;
+        text-align: center;
+    }
+
+    /* CSS Variables for colors */
+    :root {
+        --bg-dark: #000000;
+        --bg-darker: #111111;
+        --text-gold: #c8a97e;
+        --border-color: #333333;
+    }
+
+    .text-gold {
+        color: var(--text-gold) !important;
+    }
+
+    .border-secondary {
+        border-color: var(--border-color) !important;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-dismiss flash messages
+    document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.isa-alert');
+            alerts.forEach(alert => {
+                alert.style.transition = 'opacity 0.5s';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            });
+        }, 5000);
+
+        // Update time and date
+        function updateDateTime() {
+            const now = new Date();
+
+            // Format date (e.g., "24 Dec 2024")
+            const options = { day: '2-digit', month: 'short', year: 'numeric' };
+            const dateStr = now.toLocaleDateString('en-GB', options);
+
+            // Format time (e.g., "14:30")
+            const timeStr = now.toLocaleTimeString('en-GB', {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false
+            });
+
+            // Update elements
+            const dateElement = document.getElementById('current-date');
+            const timeElement = document.getElementById('current-time');
+
+            if (dateElement) {
+                dateElement.innerHTML = `<i class="fas fa-calendar-alt me-1"></i>${dateStr}`;
+            }
+
+            if (timeElement) {
+                timeElement.innerHTML = `<i class="fas fa-clock me-1"></i>${timeStr}`;
+            }
+        }
+
+        // Update immediately and then every minute
+        updateDateTime();
+        setInterval(updateDateTime, 60000);
+    });
+</script>
+{% endblock %}

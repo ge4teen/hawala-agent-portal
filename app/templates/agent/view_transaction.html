@@ -1,0 +1,662 @@
+{% extends "base_agent.html" %}
+{% block content %}
+
+{% macro format_datetime(value) %}
+    {% if value %}
+        {% if value is string %}
+            {{ value[:19] if 'T' in value else value }}
+        {% elif value.__class__.__name__ == 'datetime' %}
+            {{ value.strftime('%Y-%m-%d %H:%M') }}
+        {% else %}
+            {{ value }}
+        {% endif %}
+    {% else %}
+        N/A
+    {% endif %}
+{% endmacro %}
+
+{% macro format_date(value) %}
+    {% if value %}
+        {% if value is string %}
+            {{ value[:10] if 'T' in value else value }}
+        {% elif value.__class__.__name__ == 'datetime' %}
+            {{ value.strftime('%Y-%m-%d') }}
+        {% else %}
+            {{ value }}
+        {% endif %}
+    {% else %}
+        N/A
+    {% endif %}
+{% endmacro %}
+
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Transaction Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="fw-bold mb-1">
+                        <i class="fas fa-file-invoice-dollar me-2 text-primary"></i>
+                        Transaction Details
+                    </h2>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb">
+                            <li class="breadcrumb-item"><a href="/agent/dashboard">Dashboard</a></li>
+                            <li class="breadcrumb-item"><a href="/agent/pending">Pending</a></li>
+                            <li class="breadcrumb-item active" aria-current="page">{{ tx.transaction_id }}</li>
+                        </ol>
+                    </nav>
+                </div>
+                <div>
+                    <span class="badge bg-{% if tx.status == 'pending' %}warning{% elif tx.status == 'completed' %}success{% elif tx.status == 'cancelled' %}danger{% else %}secondary{% endif %} fs-6 px-3 py-2">
+                        {% if tx.status == 'pending' %}
+                            <i class="fas fa-clock me-1"></i> Pending
+                        {% elif tx.status == 'completed' %}
+                            <i class="fas fa-check-circle me-1"></i> Completed
+                        {% elif tx.status == 'cancelled' %}
+                            <i class="fas fa-times-circle me-1"></i> Cancelled
+                        {% else %}
+                            {{ tx.status|title if tx.status else 'Unknown' }}
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Transaction ID Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-hashtag me-2"></i>
+                        Transaction Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="mb-3">
+                                <label class="form-label text-muted mb-1">Transaction ID</label>
+                                <div class="d-flex align-items-center">
+                                    <code class="font-monospace bg-light p-3 rounded border w-100">
+                                        {{ tx.transaction_id if tx.transaction_id else 'N/A' }}
+                                    </code>
+                                    {% if tx.transaction_id %}
+                                    <button class="btn btn-outline-secondary ms-2" onclick="copyToClipboard('{{ tx.transaction_id }}')">
+                                        <i class="fas fa-copy"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="mb-3">
+                                <label class="form-label text-muted mb-1">Created</label>
+                                <div class="fw-bold">
+                                    {{ format_datetime(tx.timestamp) }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if tx.completed_at %}
+                    <div class="row mt-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted mb-1">Completed At</label>
+                            <div class="fw-bold">
+                                {{ format_datetime(tx.completed_at) }}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted mb-1">Completed By</label>
+                            <div class="fw-bold">
+                                {{ completed_by_name if completed_by_name else 'N/A' }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Amount Details -->
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-money-bill-wave me-2"></i>
+                        Amount Details
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="text-center p-4 bg-light rounded mb-3">
+                                <h3 class="text-success fw-bold mb-2">
+                                    ${{ "%.2f"|format(tx.amount_foreign) if tx.amount_foreign else "0.00" }}
+                                </h3>
+                                <p class="text-muted mb-0">USD Amount</p>
+                                <small class="text-success">To be received</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="text-center p-4 bg-light rounded mb-3">
+                                <h3 class="text-primary fw-bold mb-2">
+                                    ZAR {{ "%.2f"|format(tx.amount_local) if tx.amount_local else "0.00" }}
+                                </h3>
+                                <p class="text-muted mb-0">ZAR Equivalent</p>
+                                <small class="text-primary">South African Rand</small>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if tx.amount_local and tx.amount_foreign and tx.amount_foreign > 0 %}
+                    <div class="row mt-3">
+                        <div class="col-md-12">
+                            <div class="alert alert-info">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="fas fa-exchange-alt me-2"></i>
+                                        <strong>Exchange Rate:</strong>
+                                        <span class="ms-2">1 USD = {{ "%.4f"|format(tx.amount_local / tx.amount_foreign) }} ZAR</span>
+                                    </div>
+                                    <div>
+                                        <strong>Currency:</strong>
+                                        <span class="badge bg-dark ms-2">{{ tx.currency_code if tx.currency_code else 'USD' }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Parties Involved -->
+            <div class="card mb-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-users me-2"></i>
+                        Parties Involved
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <!-- Sender -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border-success border-2">
+                                <div class="card-header bg-success bg-opacity-10">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-paper-plane me-2 text-success"></i>
+                                        Sender
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted mb-1">Name</label>
+                                        <h5 class="fw-bold">{{ tx.sender_name if tx.sender_name else 'Not specified' }}</h5>
+                                    </div>
+
+                                    {% if tx.sender_phone %}
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted mb-1">Phone Number</label>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-phone text-success me-2"></i>
+                                            <a href="tel:{{ tx.sender_phone }}" class="text-decoration-none">
+                                                {{ tx.sender_phone }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if tx.sender_email %}
+                                    <div>
+                                        <label class="form-label text-muted mb-1">Email</label>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-envelope text-success me-2"></i>
+                                            <a href="mailto:{{ tx.sender_email }}" class="text-decoration-none">
+                                                {{ tx.sender_email }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Receiver -->
+                        <div class="col-md-6">
+                            <div class="card h-100 border-info border-2">
+                                <div class="card-header bg-info bg-opacity-10">
+                                    <h6 class="mb-0">
+                                        <i class="fas fa-user-check me-2 text-info"></i>
+                                        Receiver
+                                    </h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted mb-1">Name</label>
+                                        <h5 class="fw-bold">{{ tx.receiver_name if tx.receiver_name else 'Not specified' }}</h5>
+                                    </div>
+
+                                    {% if tx.receiver_phone %}
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted mb-1">Phone Number</label>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-phone text-info me-2"></i>
+                                            <a href="tel:{{ tx.receiver_phone }}" class="text-decoration-none">
+                                                {{ tx.receiver_phone }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+
+                                    {% if tx.receiver_email %}
+                                    <div>
+                                        <label class="form-label text-muted mb-1">Email</label>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-envelope text-info me-2"></i>
+                                            <a href="mailto:{{ tx.receiver_email }}" class="text-decoration-none">
+                                                {{ tx.receiver_email }}
+                                            </a>
+                                        </div>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Payment & Additional Information -->
+            <div class="card mb-4 border-warning">
+                <div class="card-header bg-warning text-white">
+                    <h5 class="mb-0">
+                        <i class="fas fa-credit-card me-2"></i>
+                        Payment & Additional Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label text-muted mb-2">Payment Method</label>
+                                <div>
+                                    {% if tx.payment_method == 'cash' %}
+                                        <span class="badge bg-primary fs-6 p-3">
+                                            <i class="fas fa-money-bill-wave me-2"></i> Cash
+                                        </span>
+                                    {% elif tx.payment_method == 'bank_transfer' %}
+                                        <span class="badge bg-info fs-6 p-3">
+                                            <i class="fas fa-university me-2"></i> Bank Transfer
+                                        </span>
+                                    {% elif tx.payment_method == 'card' %}
+                                        <span class="badge bg-success fs-6 p-3">
+                                            <i class="fas fa-credit-card me-2"></i> Card
+                                        </span>
+                                    {% elif tx.payment_method == 'mobile_money' %}
+                                        <span class="badge bg-purple fs-6 p-3">
+                                            <i class="fas fa-mobile-alt me-2"></i> Mobile Money
+                                        </span>
+                                    {% elif tx.payment_method == 'other' %}
+                                        <span class="badge bg-secondary fs-6 p-3">
+                                            <i class="fas fa-ellipsis-h me-2"></i> Other
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-light text-dark fs-6 p-3">
+                                            <i class="fas fa-question-circle me-2"></i> Not Specified
+                                        </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <div class="mb-4">
+                                <label class="form-label text-muted mb-2">Branch</label>
+                                <div class="fw-bold">
+                                    {% if tx.branch_name %}
+                                        {{ tx.branch_name }}
+                                    {% elif tx.branch_id %}
+                                        Branch ID: {{ tx.branch_id }}
+                                    {% else %}
+                                        <span class="text-muted">No branch specified</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if tx.notes %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted mb-2">Notes & Instructions</label>
+                        <div class="alert alert-light border">
+                            <div class="d-flex">
+                                <i class="fas fa-sticky-note text-warning me-3 fa-lg mt-1"></i>
+                                <div>
+                                    <h6 class="text-warning mb-2">Special Instructions</h6>
+                                    <p class="mb-0">{{ tx.notes }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if tx.token %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted mb-2">Security Token</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control font-monospace" value="{{ tx.token }}" readonly>
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyToClipboard('{{ tx.token }}')">
+                                <i class="fas fa-copy"></i> Copy
+                            </button>
+                        </div>
+                        <small class="text-muted">Use this token for verification when collecting payment</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar - Actions & Info -->
+        <div class="col-lg-4">
+            <div class="sticky-top" style="top: 20px;">
+                <!-- Action Card -->
+                <div class="card mb-4 border-dark">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs me-2"></i>
+                            Actions
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-3">
+                            {% if tx.status == 'pending' %}
+                            <!-- Verify Button -->
+                            <a href="/agent/verify/{{ tx.transaction_id }}" class="btn btn-success btn-lg py-3">
+                                <i class="fas fa-check-circle me-2"></i>
+                                Verify & Complete
+                            </a>
+
+                            <!-- Edit Button (if agent owns this transaction) -->
+                            {% if tx.agent_id == session.get('user_id') %}
+                            <a href="/agent/edit/{{ tx.transaction_id }}" class="btn btn-primary btn-lg py-3">
+                                <i class="fas fa-edit me-2"></i>
+                                Edit Transaction
+                            </a>
+                            {% endif %}
+
+                            {% else %}
+                            <!-- View Completed -->
+                            <button class="btn btn-secondary btn-lg py-3" disabled>
+                                <i class="fas fa-check-double me-2"></i>
+                                Transaction Completed
+                            </button>
+                            {% endif %}
+
+                            <!-- Back Button -->
+                            <a href="javascript:history.back()" class="btn btn-outline-secondary py-3">
+                                <i class="fas fa-arrow-left me-2"></i>
+                                Go Back
+                            </a>
+
+                            <!-- Print Button -->
+                            <button class="btn btn-outline-info py-3" onclick="window.print()">
+                                <i class="fas fa-print me-2"></i>
+                                Print Receipt
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status & Assignment Card -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Status & Assignment
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label class="form-label text-muted mb-1">Current Status</label>
+                            <div>
+                                {% if tx.status == 'pending' %}
+                                    <span class="badge bg-warning fs-6 p-2">
+                                        <i class="fas fa-clock me-1"></i> Pending Verification
+                                    </span>
+                                {% elif tx.status == 'completed' %}
+                                    <span class="badge bg-success fs-6 p-2">
+                                        <i class="fas fa-check-circle me-1"></i> Completed
+                                    </span>
+                                {% elif tx.status == 'cancelled' %}
+                                    <span class="badge bg-danger fs-6 p-2">
+                                        <i class="fas fa-times-circle me-1"></i> Cancelled
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary fs-6 p-2">{{ tx.status|title if tx.status else 'Unknown' }}</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted mb-1">Assigned Agent</label>
+                            <div class="d-flex align-items-center">
+                                {% if tx.agent_name %}
+                                <div class="flex-shrink-0">
+                                    <i class="fas fa-user-circle fa-2x text-primary me-2"></i>
+                                </div>
+                                <div>
+                                    <strong>{{ tx.agent_name }}</strong>
+                                    <small class="d-block text-muted">Agent ID: {{ tx.agent_id }}</small>
+                                </div>
+                                {% elif tx.agent_id %}
+                                <div>
+                                    <i class="fas fa-user me-2"></i>
+                                    <strong>Agent ID: {{ tx.agent_id }}</strong>
+                                </div>
+                                {% else %}
+                                <div>
+                                    <i class="fas fa-users me-2 text-info"></i>
+                                    <strong>Available to All Agents</strong>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label text-muted mb-1">Created By</label>
+                            <div>
+                                <i class="fas fa-user-edit me-2"></i>
+                                {{ created_by_name if created_by_name else 'Admin' }}
+                            </div>
+                        </div>
+
+                        {% if tx.picked_at %}
+                        <div class="mb-3">
+                            <label class="form-label text-muted mb-1">Picked At</label>
+                            <div>
+                                <i class="fas fa-hand-paper me-2"></i>
+                                {{ format_datetime(tx.picked_at) }}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Quick Summary -->
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list-ul me-2"></i>
+                            Quick Summary
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between px-0">
+                                <span>Transaction ID:</span>
+                                <strong class="font-monospace">
+                                    {% if tx.transaction_id and tx.transaction_id|length > 10 %}
+                                        {{ tx.transaction_id[:10] }}...
+                                    {% else %}
+                                        {{ tx.transaction_id if tx.transaction_id else 'N/A' }}
+                                    {% endif %}
+                                </strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between px-0">
+                                <span>Amount (USD):</span>
+                                <strong class="text-success">${{ "%.2f"|format(tx.amount_foreign) if tx.amount_foreign else "0.00" }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between px-0">
+                                <span>Amount (ZAR):</span>
+                                <strong class="text-primary">ZAR {{ "%.2f"|format(tx.amount_local) if tx.amount_local else "0.00" }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between px-0">
+                                <span>Payment Method:</span>
+                                <strong>{{ tx.payment_method|replace('_', ' ')|title if tx.payment_method else 'N/A' }}</strong>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between px-0">
+                                <span>Created:</span>
+                                <small>{{ format_date(tx.timestamp) }}</small>
+                            </li>
+                            {% if tx.completed_at %}
+                            <li class="list-group-item d-flex justify-content-between px-0">
+                                <span>Completed:</span>
+                                <small>{{ format_date(tx.completed_at) }}</small>
+                            </li>
+                            {% endif %}
+                        </ul>
+                        
+                        <div class="mt-3">
+                            <div class="alert alert-warning">
+                                <h6 class="alert-heading mb-2">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    Verification Required
+                                </h6>
+                                <p class="small mb-0">
+                                    Before marking as completed, ensure you have received 
+                                    <strong>${{ "%.2f"|format(tx.amount_foreign) if tx.amount_foreign else "0.00" }}</strong>
+                                    and verified payment.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 12px;
+    overflow: hidden;
+}
+.font-monospace {
+    font-family: 'Courier New', monospace;
+}
+.bg-purple {
+    background-color: #6f42c1 !important;
+}
+.sticky-top {
+    position: sticky;
+    z-index: 1020;
+}
+.list-group-item {
+    border: none;
+    padding: 0.75rem 0;
+}
+.btn-lg {
+    border-radius: 10px;
+    font-weight: 600;
+}
+.badge {
+    border-radius: 8px;
+}
+/* Print styles */
+@media print {
+    .sticky-top, .btn, .breadcrumb {
+        display: none !important;
+    }
+    .card {
+        border: 1px solid #ddd !important;
+        box-shadow: none !important;
+    }
+}
+</style>
+
+<script>
+// Copy to clipboard function
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        // Show toast notification
+        showToast('Copied to clipboard: ' + text, 'success');
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        showToast('Failed to copy to clipboard', 'error');
+    });
+}
+
+// Show toast notification
+function showToast(message, type = 'info') {
+    // Create toast container if it doesn't exist
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'position-fixed top-0 end-0 p-3';
+        toastContainer.style.zIndex = '9999';
+        document.body.appendChild(toastContainer);
+    }
+    
+    // Create toast
+    const toastId = 'toast-' + Date.now();
+    const toast = document.createElement('div');
+    toast.id = toastId;
+    toast.className = `toast show`;
+    toast.innerHTML = `
+        <div class="toast-header bg-${type} text-white">
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'} me-2"></i>
+            <strong class="me-auto">${type === 'success' ? 'Success' : 'Error'}</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body">
+            ${message}
+        </div>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        if (document.getElementById(toastId)) {
+            document.getElementById(toastId).remove();
+        }
+    }, 3000);
+}
+
+// Page load enhancements
+document.addEventListener('DOMContentLoaded', function() {
+    // Add print styles
+    const style = document.createElement('style');
+    style.textContent = `
+        @media print {
+            .no-print { display: none !important; }
+            body { font-size: 12pt; }
+            .card { break-inside: avoid; }
+        }
+    `;
+    document.head.appendChild(style);
+    
+    // Add no-print class to action buttons
+    const actionButtons = document.querySelectorAll('.btn');
+    actionButtons.forEach(btn => btn.classList.add('no-print'));
+    
+    // Add no-print class to sidebar
+    const sidebar = document.querySelector('.sticky-top');
+    if (sidebar) sidebar.classList.add('no-print');
+    
+    // Add no-print class to breadcrumb
+    const breadcrumb = document.querySelector('.breadcrumb');
+    if (breadcrumb) breadcrumb.classList.add('no-print');
+});
+</script>
+{% endblock %}

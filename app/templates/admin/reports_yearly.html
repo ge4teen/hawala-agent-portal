@@ -1,0 +1,406 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Yearly Transactions Report</h2>
+            <p class="text-muted mb-0">Year-over-year performance analysis</p>
+        </div>
+        <div>
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('admin.reports_daily') }}" class="btn btn-outline-primary">Daily</a>
+                <a href="{{ url_for('admin.reports_monthly') }}" class="btn btn-outline-primary">Monthly</a>
+                <a href="{{ url_for('admin.reports_yearly') }}" class="btn btn-primary active">Yearly</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Years Recorded</h6>
+                            <h3 class="mb-0">{{ rows|length }}</h3>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-calendar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">All Time Transactions</h6>
+                            <h3 class="mb-0">{{ rows|sum(attribute='count') }}</h3>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-exchange-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Total Volume (All Time)</h6>
+                            <h3 class="mb-0">ZAR {{ "%.2f"|format(rows|sum(attribute='total')|float) }}</h3>
+                        </div>
+                        <div class="text-info">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Avg. Yearly Growth</h6>
+                            <h3 class="mb-0">
+                                {% if rows|length > 1 %}
+                                    {% set total_growth = 0 %}
+                                    {% set count = 0 %}
+                                    {% for i in range(1, rows|length) %}
+                                        {% set prev = rows[i-1]['total']|float %}
+                                        {% set curr = rows[i]['total']|float %}
+                                        {% if prev > 0 %}
+                                            {% set growth = ((curr - prev) / prev * 100) %}
+                                            {% set total_growth = total_growth + growth %}
+                                            {% set count = count + 1 %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    {% if count > 0 %}
+                                        {{ "%.1f"|format(total_growth / count) }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </h3>
+                        </div>
+                        <div class="text-warning">
+                            <i class="fas fa-chart-bar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Year Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.reports_yearly') }}" class="row g-3">
+                <div class="col-md-4">
+                    <label for="start_year" class="form-label">Start Year</label>
+                    <select class="form-control" id="start_year" name="start_year">
+                        <option value="">All Years</option>
+                        {% if available_years %}
+                            {% for year in available_years %}
+                                <option value="{{ year }}" {% if year == start_year %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="end_year" class="form-label">End Year</label>
+                    <select class="form-control" id="end_year" name="end_year">
+                        <option value="">All Years</option>
+                        {% if available_years %}
+                            {% for year in available_years %}
+                                <option value="{{ year }}" {% if year == end_year %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <a href="{{ url_for('admin.reports_yearly') }}" class="btn btn-secondary">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Yearly Summary Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Yearly Performance Summary</h5>
+            <span class="badge bg-primary">
+                {% if rows %}
+                    {{ rows|length }} year{% if rows|length != 1 %}s{% endif %}
+                {% else %}
+                    0 years
+                {% endif %}
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Year</th>
+                            <th>Transactions</th>
+                            <th>Total Volume (ZAR)</th>
+                            <th>Avg. Transaction</th>
+                            <th>Monthly Avg.</th>
+                            <th>Growth %</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if rows %}
+                            {% for year in rows %}
+                            <tr>
+                                <td>
+                                    <strong>{{ year['year'] }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary rounded-pill">{{ year['count'] }}</span>
+                                </td>
+                                <td class="fw-bold">ZAR {{ "%.2f"|format(year['total']|float) }}</td>
+                                <td>
+                                    {% if year['count'] > 0 %}
+                                        ZAR {{ "%.2f"|format(year['total']|float/year['count']) }}
+                                    {% else %}
+                                        ZAR 0.00
+                                    {% endif %}
+                                </td>
+                                <td>ZAR {{ "%.2f"|format(year['total']|float/12) }}</td>
+                                <td>
+                                    {% if loop.index0 > 0 %}
+                                        {% set prev_year = rows[loop.index0 - 1] %}
+                                        {% if prev_year['total']|float > 0 %}
+                                            {% set growth = ((year['total']|float - prev_year['total']|float) / prev_year['total']|float * 100) %}
+                                            <span class="badge {% if growth > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ "%.1f"|format(growth) }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-info">N/A</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.reports_monthly') }}?year={{ year['year'] }}"
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-calendar-alt"></i> View Months
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="7" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        <p>No yearly data available</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if rows %}
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <div class="text-muted">
+                {% if rows|length > 0 %}
+                    Historical data from {{ rows[0]['year'] }} to {{ rows[-1]['year'] }}
+                {% else %}
+                    No data available
+                {% endif %}
+            </div>
+            <div>
+                <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button onclick="exportYearlyCSV()" class="btn btn-outline-success btn-sm">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Yearly Comparison -->
+    {% if rows and rows|length > 1 %}
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Year-over-Year Comparison</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                {% for year in rows|reverse %}
+                                    <th class="text-end">{{ year['year'] }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Total Volume</td>
+                                {% for year in rows|reverse %}
+                                    <td class="text-end">ZAR {{ "%.2f"|format(year['total']|float) }}</td>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                <td>Transactions</td>
+                                {% for year in rows|reverse %}
+                                    <td class="text-end">{{ year['count'] }}</td>
+                                {% endfor %}
+                            </tr>
+                            <tr>
+                                <td>Avg. Transaction</td>
+                                {% for year in rows|reverse %}
+                                    <td class="text-end">
+                                        {% if year['count'] > 0 %}
+                                            ZAR {{ "%.2f"|format(year['total']|float/year['count']) }}
+                                        {% else %}
+                                            ZAR 0.00
+                                        {% endif %}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Performance Insights</h5>
+                </div>
+                <div class="card-body">
+                    {% if rows|length >= 2 %}
+                        {% set latest = rows[-1] %}
+                        {% set previous = rows[-2] %}
+
+                        <div class="mb-3">
+                            <h6>Latest Year ({{ latest['year'] }})</h6>
+                            {% if previous['total']|float > 0 %}
+                                {% set volume_growth = ((latest['total']|float - previous['total']|float) / previous['total']|float * 100) %}
+                                {% set count_growth = ((latest['count'] - previous['count']) / previous['count'] * 100) if previous['count'] > 0 else 0 %}
+
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Volume Growth:</span>
+                                    <span class="{% if volume_growth > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ "%.1f"|format(volume_growth) }}%
+                                    </span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>Transaction Growth:</span>
+                                    <span class="{% if count_growth > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ "%.1f"|format(count_growth) }}%
+                                    </span>
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0">No previous year data for comparison</p>
+                            {% endif %}
+                        </div>
+
+                        <div>
+                            <h6>All Time High</h6>
+                            {% set best_year = rows|sort(attribute='total', reverse=True)|first %}
+                            <p class="mb-1">
+                                <strong>{{ best_year['year'] }}</strong>:
+                                ZAR {{ "%.2f"|format(best_year['total']|float) }}
+                            </p>
+                            <small class="text-muted">
+                                {{ best_year['count'] }} transactions
+                            </small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function exportYearlyCSV() {
+    let csv = [];
+    let table = document.querySelector(".table");
+    let rows = table.querySelectorAll("tbody tr");
+
+    // Add headers
+    let headers = [];
+    table.querySelectorAll("thead th").forEach(th => {
+        if (th.innerText !== "Actions") {
+            headers.push(th.innerText);
+        }
+    });
+    csv.push(headers);
+
+    // Add data rows
+    rows.forEach(row => {
+        if (row.cells.length > 1 && !row.classList.contains('text-center')) {
+            let cols = [];
+            for(let i = 0; i < row.cells.length - 1; i++) { // Skip actions column
+                let text = row.cells[i].innerText.trim();
+                cols.push(text.includes(',') ? `"${text}"` : text);
+            }
+            csv.push(cols);
+        }
+    });
+
+    // Create and download CSV file
+    let csvContent = csv.map(row => row.join(',')).join('\n');
+    let blob = new Blob([csvContent], { type: 'text/csv' });
+    let url = window.URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+
+    // Generate filename
+    let filename = 'yearly_report';
+    {% if start_year %}
+        filename += '_{{ start_year }}';
+    {% endif %}
+    {% if end_year %}
+        filename += '_to_{{ end_year }}';
+    {% endif %}
+    filename += '.csv';
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
+
+<style>
+.badge { font-weight: 500; }
+.table th { font-weight: 600; }
+.text-success { color: #1cc88a !important; }
+.text-danger { color: #e74a3b !important; }
+.card { border-radius: 10px; margin-bottom: 1.5rem; }
+.table-sm td, .table-sm th { padding: 0.5rem; }
+</style>
+{% endblock %}

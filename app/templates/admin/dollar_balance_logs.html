@@ -1,0 +1,296 @@
+{% extends "admin/base_admin.html" %}
+
+{% block extra_css %}
+<style>
+    .log-table-container { min-height: 400px; }
+    .table thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 10; }
+    .status-indicator { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .card-stat { transition: transform 0.2s; }
+    .card-stat:hover { transform: translateY(-5px); }
+    .text-monospace { font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, monospace; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid pb-5">
+    <header class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1"><i class="fas fa-file-invoice-dollar me-2 text-primary"></i>Dollar Balance Logs</h2>
+            <p class="text-muted mb-0">Audit trail for all USD system adjustments and transactions.</p>
+        </div>
+        <div class="btn-group">
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Dashboard
+            </a>
+            <a href="{{ url_for('admin.manage_dollar_balance') }}" class="btn btn-success">
+                <i class="fas fa-plus-circle me-1"></i> Add Funds
+            </a>
+        </div>
+    </header>
+
+    <div class="row g-3 mb-4">
+        <div class="col-lg-4">
+            <div class="card bg-primary text-white shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h6 class="text-white-50 uppercase fw-bold">Current System Balance</h6>
+                        <button class="btn btn-sm btn-light opacity-75" onclick="BalanceLogger.refreshBalance()" id="refreshBtn">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <h1 class="display-5 fw-bold my-2" id="currentBalance">$0.00</h1>
+                    <div class="small" id="balanceTimestamp">
+                        <i class="far fa-clock me-1"></i> Syncing...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% set stats = [
+            {'label': 'Total Inflow', 'value': total_inflow, 'color': 'success', 'icon': 'fa-arrow-down'},
+            {'label': 'Total Outflow', 'value': total_outflow, 'color': 'danger', 'icon': 'fa-arrow-up'},
+            {'label': 'Net Change', 'value': net_change, 'color': 'info', 'icon': 'fa-exchange-alt'}
+        ] %}
+        {% for stat in stats %}
+        <div class="col-lg-2 col-md-4">
+            <div class="card h-100 shadow-sm card-stat">
+                <div class="card-body text-center">
+                    <div class="text-{{ stat.color }} mb-2"><i class="fas {{ stat.icon }}"></i></div>
+                    <h6 class="text-muted small fw-bold mb-1">{{ stat.label }}</h6>
+                    <h4 class="fw-bold mb-0">${{ stat.value|default(0)|round(2) }}</h4>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+        <div class="col-lg-2 col-md-4">
+            <div class="card h-100 shadow-sm card-stat">
+                <div class="card-body text-center">
+                    <div class="text-secondary mb-2"><i class="fas fa-database"></i></div>
+                    <h6 class="text-muted small fw-bold mb-1">Records</h6>
+                    <h4 class="fw-bold mb-0">{{ logs|length }}</h4>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body bg-light rounded">
+            <form method="GET" id="filterForm" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Date Range</label>
+                    <div class="input-group input-group-sm">
+                        <input type="date" class="form-control" name="start_date" value="{{ request.args.get('start_date', '') }}">
+                        <input type="date" class="form-control" name="end_date" value="{{ request.args.get('end_date', '') }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small fw-bold">Type</label>
+                    <select name="change_type" class="form-select form-select-sm">
+                        <option value="">All Transactions</option>
+                        {% for val, label in [
+                            ('transaction_outgoing', 'Outgoing'),
+                            ('transaction_incoming', 'Incoming'),
+                            ('manual_adjustment', 'Manual'),
+                            ('initial', 'Initial'),
+                            ('correction', 'Correction')
+                        ] %}
+                        <option value="{{ val }}" {% if request.args.get('change_type') == val %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-bold">Search</label>
+                    <input type="text" name="description" class="form-control form-control-sm" placeholder="Search description..." value="{{ request.args.get('description', '') }}">
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary btn-sm flex-grow-1">Filter</button>
+                        <a href="{{ url_for('admin.dollar_balance_logs') }}" class="btn btn-outline-secondary btn-sm">Reset</a>
+                        <button type="button" class="btn btn-info btn-sm" onclick="BalanceLogger.exportCSV()">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="table-responsive log-table-container">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="bg-light">
+                    <tr>
+                        <th class="ps-4">Timestamp</th>
+                        <th>Reference</th>
+                        <th>Type</th>
+                        <th class="text-end">Amount</th>
+                        <th class="text-end">Final Balance</th>
+                        <th>Executor</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold">{{ log.timestamp|format_date }}</div>
+                            <small class="text-muted">{{ log.timestamp|time_ago }}</small>
+                        </td>
+                        <td>
+                            {% if log.transaction_id %}
+                                <a href="{{ url_for('admin.view_transaction', txid=log.transaction_id) }}" class="text-monospace small">
+                                    #{{ log.transaction_id[:8] }}
+                                </a>
+                            {% else %}
+                                <span class="text-muted small">N/A</span>
+                            {% endif %}
+                            <div class="small text-truncate" style="max-width: 150px;">{{ log.description }}</div>
+                        </td>
+                        <td>{{ render_badge(log.change_type) }}</td>
+                        <td class="text-end fw-bold {{ 'text-success' if log.change_amount > 0 else 'text-danger' }}">
+                            {{ "+" if log.change_amount > 0 else "" }}{{ "%.2f"|format(log.change_amount) }}
+                        </td>
+                        <td class="text-end fw-bold text-monospace">
+                            ${{ "%.2f"|format(log.new_balance) }}
+                        </td>
+                        <td>
+                            <div class="small fw-bold">{{ log.created_by_user.username if log.created_by_user else 'System' }}</div>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-light border" onclick="BalanceLogger.showDetails({{ log.id }})">
+                                <i class="fas fa-eye text-primary"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="text-center py-5 text-muted">
+                            <i class="fas fa-search fa-3x mb-3 opacity-25"></i>
+                            <p>No records found matching your criteria.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="globalModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="modalBody">
+                </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% macro render_badge(type) %}
+    {% set map = {
+        'transaction_outgoing': ('danger', 'arrow-up'),
+        'transaction_incoming': ('success', 'arrow-down'),
+        'manual_adjustment': ('warning', 'edit'),
+        'initial': ('info', 'star'),
+        'correction': ('secondary', 'wrench')
+    } %}
+    {% set config = map.get(type, ('light', 'question')) %}
+    <span class="badge bg-{{ config[0] }} opacity-75">
+        <i class="fas fa-{{ config[1] }} me-1"></i> {{ type|replace('_', ' ')|title }}
+    </span>
+{% endmacro %}
+
+{% block extra_js %}
+<script>
+/**
+ * BalanceLogger Module
+ * Handles all dynamic interactions for the Dollar Balance page
+ */
+const BalanceLogger = {
+    modal: null,
+
+    init() {
+        this.modal = new bootstrap.Modal(document.getElementById('globalModal'));
+        this.refreshBalance();
+        // Auto-refresh every minute
+        setInterval(() => this.refreshBalance(), 60000);
+    },
+
+    async refreshBalance() {
+        const btn = document.getElementById('refreshBtn');
+        btn?.querySelector('i').classList.add('fa-spin');
+
+        try {
+            const response = await fetch('/admin/api/dollar_balance');
+            const data = await response.json();
+
+            document.getElementById('currentBalance').textContent = new Intl.NumberFormat('en-US', {
+                style: 'currency', currency: 'USD'
+            }).format(data.balance);
+
+            document.getElementById('balanceTimestamp').innerHTML =
+                `<i class="far fa-clock me-1"></i> Updated: ${new Date().toLocaleTimeString()}`;
+        } catch (err) {
+            console.error("Balance Sync Failed", err);
+        } finally {
+            btn?.querySelector('i').classList.remove('fa-spin');
+        }
+    },
+
+    async showDetails(id) {
+        const container = document.getElementById('modalBody');
+        container.innerHTML = `<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>`;
+        this.modal.show();
+
+        try {
+            const response = await fetch(`/admin/api/dollar_balance/log/${id}`);
+            const { log, error } = await response.json();
+
+            if (error) throw new Error(error);
+
+            container.innerHTML = `
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span class="text-muted">Status</span>
+                        <span class="fw-bold text-success">Verified</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span class="text-muted">Previous Balance</span>
+                        <span class="text-monospace">$${log.previous_balance.toFixed(2)}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span class="text-muted">Net Change</span>
+                        <span class="fw-bold ${log.change_amount > 0 ? 'text-success' : 'text-danger'}">
+                            $${log.change_amount.toFixed(2)}
+                        </span>
+                    </li>
+                    <li class="list-group-item">
+                        <div class="text-muted mb-1">Internal Note</div>
+                        <div class="p-2 bg-light rounded small">${log.description || 'N/A'}</div>
+                    </li>
+                </ul>
+                <div class="mt-3 d-grid">
+                    <button class="btn btn-outline-primary btn-sm" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i> Print Receipt
+                    </button>
+                </div>
+            `;
+        } catch (err) {
+            container.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+        }
+    },
+
+    exportCSV() {
+        const params = new URLSearchParams(new FormData(document.getElementById('filterForm')));
+        window.open(`/admin/api/dollar_balance/export?${params.toString()}`, '_blank');
+    }
+};
+
+document.addEventListener('DOMContentLoaded', () => BalanceLogger.init());
+</script>
+{% endblock %}

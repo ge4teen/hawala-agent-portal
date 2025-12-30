@@ -1,0 +1,275 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Daily Transactions Report</h2>
+            <p class="text-muted mb-0">
+                {% if selected_date %}
+                    {{ selected_date }}
+                {% else %}
+                    Today: {{ now().strftime('%Y-%m-%d') if now else '' }}
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('admin.reports_daily') }}" class="btn btn-primary active">Daily</a>
+                <a href="{{ url_for('admin.reports_monthly') }}" class="btn btn-outline-primary">Monthly</a>
+                <a href="{{ url_for('admin.reports_yearly') }}" class="btn btn-outline-primary">Yearly</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Today's Transactions</h6>
+                            <h3 class="mb-0">{{ today['count'] if today else 0 }}</h3>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-exchange-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Today's Volume</h6>
+                            <h3 class="mb-0">ZAR {{ "%.2f"|format(today['total']|float if today else 0) }}</h3>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Avg. Transaction</h6>
+                            <h3 class="mb-0">
+                                ZAR {{ "%.2f"|format((today['total']|float / today['count']) if today and today['count'] > 0 else 0) }}
+                            </h3>
+                        </div>
+                        <div class="text-info">
+                            <i class="fas fa-calculator fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Date Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.reports_daily') }}" class="row g-3">
+                <div class="col-md-4">
+                    <label for="date" class="form-label">Select Date</label>
+                    <input type="date" class="form-control" id="date" name="date"
+                           value="{{ selected_date if selected_date else '' }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <a href="{{ url_for('admin.reports_daily') }}" class="btn btn-secondary">Today</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transactions Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Transaction Details</h5>
+            <span class="badge bg-primary">{{ rows|length }} transaction{% if rows|length != 1 %}s{% endif %}</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Sender</th>
+                            <th>Receiver</th>
+                            <th>Amount (ZAR)</th>
+                            <th>Currency</th>
+                            <th>Status</th>
+                            <th>Agent</th>
+                            <th>Time</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if rows %}
+                            {% for t in rows %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-light text-dark font-monospace">{{ t['transaction_id']|truncate(10, True, '...') }}</span>
+                                </td>
+                                <td>
+                                    <div>{{ t['sender_name'] }}</div>
+                                    <small class="text-muted">{{ t['sender_phone'] }}</small>
+                                </td>
+                                <td>{{ t['receiver_name'] }}</td>
+                                <td class="fw-bold">ZAR {{ "%.2f"|format(t['amount_local']|float) }}</td>
+                                <td>
+                                    <span class="badge bg-info">{{ t['currency_code'] }}</span>
+                                </td>
+                                <td>
+                                    {% if t['status'] == 'pending' %}
+                                        <span class="badge badge-warning">Pending</span>
+                                    {% elif t['status'] == 'completed' %}
+                                        <span class="badge badge-success">Completed</span>
+                                    {% elif t['status'] == 'cancelled' %}
+                                        <span class="badge badge-danger">Cancelled</span>
+                                    {% else %}
+                                        <span class="badge badge-secondary">{{ t['status']|title }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if t['agent_name'] %}
+                                        {{ t['agent_name'] }}
+                                    {% else %}
+                                        <span class="text-muted">Unassigned</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small>{{ t['timestamp']|string|truncate(16, True, '') }}</small>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.edit_transaction', txid=t['transaction_id']) }}"
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        <p>No transactions found for this date</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if rows %}
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <div class="text-muted">
+                Total: ZAR {{ "%.2f"|format(rows|sum(attribute='amount_local')|float) }}
+            </div>
+            <div>
+                <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button onclick="exportToCSV()" class="btn btn-outline-success btn-sm">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Daily Summary Chart -->
+    {% if daily_summary %}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Last 7 Days Summary</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Transactions</th>
+                            <th>Total Volume</th>
+                            <th>Avg. Transaction</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for day in daily_summary %}
+                        <tr>
+                            <td>{{ day['day'] }}</td>
+                            <td>{{ day['count'] }}</td>
+                            <td>ZAR {{ "%.2f"|format(day['total']|float) }}</td>
+                            <td>ZAR {{ "%.2f"|format((day['total']|float / day['count']) if day['count'] > 0 else 0) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function exportToCSV() {
+    let csv = [];
+    let rows = document.querySelectorAll("table tbody tr");
+
+    // Add headers
+    csv.push(['Transaction ID', 'Sender', 'Receiver', 'Amount (ZAR)', 'Currency', 'Status', 'Agent', 'Time']);
+
+    // Add data rows
+    rows.forEach(row => {
+        if (row.cells.length > 1) {
+            let cols = [];
+            for(let i = 0; i < row.cells.length - 1; i++) { // Skip actions column
+                let text = row.cells[i].innerText.trim();
+                cols.push(text.includes(',') ? `"${text}"` : text);
+            }
+            csv.push(cols);
+        }
+    });
+
+    // Create and download CSV file
+    let csvContent = csv.map(row => row.join(',')).join('\n');
+    let blob = new Blob([csvContent], { type: 'text/csv' });
+    let url = window.URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+    let filename = 'daily_report_';
+    {% if selected_date %}
+        filename += '{{ selected_date }}';
+    {% else %}
+        filename += 'today';
+    {% endif %}
+    filename += '.csv';
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
+
+<style>
+.badge-warning { background-color: #ffc107; color: #000; }
+.badge-success { background-color: #28a745; color: #fff; }
+.badge-danger { background-color: #dc3545; color: #fff; }
+.card { border-radius: 10px; }
+.table th { font-weight: 600; }
+.font-monospace { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+</style>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base_agent.html" %}
+{% block content %}
+
+<h2 class="fw-bold mb-4">Create Transaction</h2>
+
+<form method="POST" class="row g-3">
+
+    <div class="col-md-6">
+        <label class="form-label">Sender Name</label>
+        <input name="sender_name" class="form-control" required>
+    </div>
+
+    <div class="col-md-6">
+        <label class="form-label">Receiver Name</label>
+        <input name="receiver_name" class="form-control" required>
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">Amount</label>
+        <input name="amount" type="number" class="form-control" required>
+    </div>
+
+    <div class="col-md-4">
+        <label class="form-label">Currency</label>
+        <select name="currency_code" class="form-select">
+            {% for c in currencies %}
+            <option value="{{ c.code }}">{{ c.code }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="col-12">
+        <button class="btn btn-primary px-4" type="submit">Create</button>
+    </div>
+</form>
+
+{% endblock %}

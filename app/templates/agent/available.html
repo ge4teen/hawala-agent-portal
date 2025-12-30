@@ -1,0 +1,119 @@
+{% extends "base_agent.html" %}
+{% block content %}
+
+<h2 class="mb-4">
+    Available Transactions
+    <span class="badge bg-warning">{{ txs|length }}</span>
+</h2>
+
+<!-- DEBUG SECTION - Add this -->
+<div class="alert alert-warning">
+    <strong>DEBUG INFO:</strong><br>
+    • Transactions in list: {{ txs|length }}<br>
+    • Agent ID: {{ session.get('user_id') }}<br>
+    • Picked Count: {{ picked_count|default(0) }}
+</div>
+
+{% if txs %}
+<div class="alert alert-info">
+    <i class="fas fa-info-circle"></i>
+    These transactions are available to all agents. Click "Pick" to assign to yourself.
+</div>
+
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                <th>ID</th>
+                <th>Sender</th>
+                <th>Receiver</th>
+                <th>Amount</th>
+                <th>Created By</th>
+                <th>Status</th>
+                <th>Available</th>
+                <th>Agent ID</th>
+                <th>Picked By</th>
+                <th>Created At</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in txs %}
+            <tr>
+                <td>
+                    <span class="badge bg-light text-dark font-monospace">
+                        {{ tx.transaction_id }}
+                    </span>
+                </td>
+                <td>{{ tx.sender_name }}</td>
+                <td>{{ tx.receiver_name }}</td>
+                <td class="fw-bold">ZAR {{ "%.2f"|format(tx.amount_local) }}</td>
+                <td>{{ tx.created_by_name or 'Admin' }}</td>
+                <td>
+                    <span class="badge bg-{% if tx.status == 'pending' %}warning{% else %}success{% endif %}">
+                        {{ tx.status }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-{% if tx.available_to_all == 1 %}success{% else %}secondary{% endif %}">
+                        {{ 'Yes' if tx.available_to_all == 1 else 'No' }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-{% if tx.agent_id %}info{% else %}secondary{% endif %}">
+                        {{ tx.agent_id or 'None' }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-{% if tx.picked_by %}info{% else %}secondary{% endif %}">
+                        {{ tx.picked_by or 'None' }}
+                    </span>
+                </td>
+                <td>
+                    <small>{{ tx.timestamp|string|truncate(16, True, '') }}</small>
+                </td>
+                <td>
+                    <!-- Fixed: Use txid parameter name and proper URL -->
+                    <form method="POST" action="{{ url_for('agent.pick_transaction', txid=tx.transaction_id) }}"
+                          onsubmit="return confirm('Pick this transaction? It will be assigned to you.')"
+                          style="display: inline;">
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <i class="fas fa-hand-paper"></i> Pick
+                        </button>
+                    </form>
+
+                    <!-- Add Verify button -->
+                    <a href="{{ url_for('agent.verify_transaction', txid=tx.transaction_id) }}"
+                       class="btn btn-sm btn-info">
+                        <i class="fas fa-check-circle"></i> Verify
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-5">
+    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+    <h4 class="text-muted">No Available Transactions</h4>
+    <p class="text-muted">There are currently no transactions available for pickup.</p>
+
+    <!-- DEBUG: Add link to check database -->
+    <div class="mt-3">
+        <a href="{{ url_for('agent.dashboard') }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+        <a href="{{ url_for('agent.create_transaction') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Create New Transaction
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.font-monospace {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+</style>
+{% endblock %}

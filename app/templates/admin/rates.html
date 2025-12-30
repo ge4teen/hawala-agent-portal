@@ -1,0 +1,383 @@
+{% extends "admin/base_admin.html" %}
+
+{% block page_title %}Exchange Rates{% endblock %}
+{% block page_subtitle %}Manage USD to ZAR conversion rates{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="section-label mb-1">Exchange Rates</h1>
+            <div class="divider"></div>
+            <p class="text-muted mb-0">Manage USD to ZAR conversion rates</p>
+        </div>
+        <div class="badge {% if needs_update %}bg-warning{% else %}bg-success{% endif %} px-3 py-2">
+            <i class="fas fa-robot me-1"></i>Auto-update: {% if auto %}ON{% else %}OFF{% endif %}
+        </div>
+    </div>
+
+    <!-- Current Rate & Actions -->
+    <div class="row mb-4">
+        <!-- Current Rate Card -->
+        <div class="col-md-7 mb-4">
+            <div class="isa-card border-gold">
+                <div class="isa-card-header bg-dark-gold text-dark">
+                    <h5 class="mb-0"><i class="fas fa-dollar-sign me-2"></i>Current Exchange Rate</h5>
+                </div>
+                <div class="isa-card-body text-center py-5">
+                    {% if latest %}
+                        <div class="exchange-display mb-4">
+                            <div class="currency-from d-inline-block text-center me-3">
+                                <div class="currency-flag bg-dark rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 60px; height: 60px;">
+                                    <i class="fas fa-dollar-sign fa-2x text-gold"></i>
+                                </div>
+                                <small class="text-muted">US Dollar</small>
+                            </div>
+
+                            <div class="exchange-arrow d-inline-block mx-3">
+                                <i class="fas fa-exchange-alt fa-2x text-gold"></i>
+                            </div>
+
+                            <div class="currency-to d-inline-block text-center ms-3">
+                                <div class="currency-flag bg-dark rounded-circle d-flex align-items-center justify-content-center mx-auto mb-2" style="width: 60px; height: 60px;">
+                                    <i class="fas fa-rand-sign fa-2x text-gold"></i>
+                                </div>
+                                <small class="text-muted">South African Rand</small>
+                            </div>
+                        </div>
+
+                        <h1 class="display-4 mb-3 text-gold">1 USD = {{ "%.2f"|format(latest['rate']) }} ZAR</h1>
+
+                        <div class="rate-info mt-4">
+                            <div class="row justify-content-center">
+                                <div class="col-auto">
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-database text-info me-2"></i>
+                                        <div>
+                                            <small class="text-muted d-block">Source</small>
+                                            <strong>{{ latest['source'] or 'Manual' }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-auto">
+                                    <div class="d-flex align-items-center">
+                                        <i class="far fa-clock text-gold me-2"></i>
+                                        <div>
+                                            <small class="text-muted d-block">Last Updated</small>
+                                            <strong>{{ latest['updated_at'] }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-exclamation-triangle fa-4x text-warning mb-4"></i>
+                            <h4 class="text-warning mb-3">No Exchange Rate Set</h4>
+                            <p class="text-muted">Please set a rate or fetch from API</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="col-md-5 mb-4">
+            <div class="isa-card">
+                <div class="isa-card-header">
+                    <h5 class="mb-0"><i class="fas fa-bolt me-2"></i>Quick Actions</h5>
+                </div>
+                <div class="isa-card-body">
+                    <!-- Manual Rate Form -->
+                    <form method="POST" class="mb-4">
+                        <div class="mb-3">
+                            <label class="isa-form-label">Set Manual Rate</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-dark border-secondary">1 USD =</span>
+                                <input type="number" step="0.01" name="rate" class="form-control isa-form-control"
+                                       placeholder="Enter ZAR amount" required>
+                                <span class="input-group-text bg-dark border-secondary">ZAR</span>
+                            </div>
+                            <input type="hidden" name="source" value="Manual">
+                        </div>
+                        <button type="submit" name="set_rate" class="btn btn-gold w-100">
+                            <i class="fas fa-save me-2"></i>Set Manual Rate
+                        </button>
+                    </form>
+
+                    <!-- Fetch API Rate -->
+                    <form method="POST" class="mb-4">
+                        <button type="submit" name="fetch_now" class="btn btn-outline-gold w-100">
+                            <i class="fas fa-sync-alt me-2"></i>Fetch Latest Rate from API
+                        </button>
+                        <small class="text-muted d-block mt-1 text-center">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Fetches from multiple reliable sources
+                        </small>
+                    </form>
+
+                    <!-- Toggle Auto-Update -->
+                    <form method="POST" class="mb-4">
+                        <button type="submit" name="toggle_auto" class="btn {% if auto %}btn-outline-warning{% else %}btn-outline-success{% endif %} w-100">
+                            <i class="fas fa-robot me-2"></i>
+                            {% if auto %}Disable{% else %}Enable{% endif %} Auto-Update
+                        </button>
+                    </form>
+
+                    <!-- Clear History -->
+                    <form method="POST" onsubmit="return confirm('Clear all rate history except latest?');">
+                        <button type="submit" name="clear_history" class="btn btn-outline-danger w-100">
+                            <i class="fas fa-trash me-2"></i>Clear History
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rate History -->
+    <div class="isa-card mb-4">
+        <div class="isa-card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-history me-2"></i>Rate History</h5>
+            <span class="badge bg-dark text-gold">{{ history|length if history else 0 }} records</span>
+        </div>
+        <div class="isa-card-body">
+            {% if history %}
+                <div class="table-responsive">
+                    <table class="table isa-table">
+                        <thead>
+                            <tr>
+                                <th>Date & Time</th>
+                                <th>Rate (USD→ZAR)</th>
+                                <th>Source</th>
+                                <th>Change</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for rate in history %}
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <i class="far fa-clock text-muted me-2"></i>
+                                        <div>
+                                            <div>{{ rate['updated_at'] }}</div>
+                                            {% if loop.first %}
+                                            <small class="text-success">Current</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="fw-bold text-gold">{{ "%.4f"|format(rate['rate']) }}</td>
+                                <td>
+                                    {% if rate['source'] == 'API' %}
+                                        <span class="badge bg-info px-3 py-2">
+                                            <i class="fas fa-plug me-1"></i>API
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary px-3 py-2">
+                                            <i class="fas fa-user-edit me-1"></i>Manual
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if loop.index0 < history|length - 1 %}
+                                        {% set prev_rate = history[loop.index0 + 1]['rate'] %}
+                                        {% set change = ((rate['rate'] - prev_rate) / prev_rate * 100) %}
+                                        <span class="badge {% if change > 0 %}bg-success{% elif change < 0 %}bg-danger{% else %}bg-secondary{% endif %} px-3 py-2">
+                                            <i class="fas fa-arrow-{% if change > 0 %}up{% elif change < 0 %}down{% else %}right{% endif %} me-1"></i>
+                                            {{ "%+.2f"|format(change) }}%
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-dark px-3 py-2">First Record</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not loop.first %}
+                                    <form method="POST" style="display: inline;">
+                                        <input type="hidden" name="rate" value="{{ rate['rate'] }}">
+                                        <button type="submit" name="set_rate" class="btn btn-sm btn-outline-gold" title="Use this rate">
+                                            <i class="fas fa-undo"></i>
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">No rate history available</h5>
+                    <p class="text-muted">Set your first rate to start tracking history</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Auto-Update Schedule -->
+    <div class="isa-card">
+        <div class="isa-card-header">
+            <h5 class="mb-0"><i class="fas fa-calendar-alt me-2"></i>Auto-Update Schedule</h5>
+        </div>
+        <div class="isa-card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-gold mb-3">How Auto-Update Works:</h6>
+                    <div class="row">
+                        <div class="col-12 mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-dark p-2 rounded me-3">
+                                    <i class="fas fa-clock text-success"></i>
+                                </div>
+                                <div>
+                                    <strong class="d-block">Hourly Updates</strong>
+                                    <small class="text-muted">Rates automatically update every 1 hour</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-dark p-2 rounded me-3">
+                                    <i class="fas fa-plug text-info"></i>
+                                </div>
+                                <div>
+                                    <strong class="d-block">Multiple Sources</strong>
+                                    <small class="text-muted">Multiple API sources tried in sequence</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 mb-2">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-dark p-2 rounded me-3">
+                                    <i class="fas fa-shield-alt text-warning"></i>
+                                </div>
+                                <div>
+                                    <strong class="d-block">Fallback System</strong>
+                                    <small class="text-muted">Fallback to last known rate if APIs fail</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex align-items-center">
+                                <div class="bg-dark p-2 rounded me-3">
+                                    <i class="fas fa-sync-alt text-gold"></i>
+                                </div>
+                                <div>
+                                    <strong class="d-block">Background Updates</strong>
+                                    <small class="text-muted">Updates occur when dashboard is loaded</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <h6 class="text-gold mb-3">Next Update:</h6>
+                    <div class="isa-alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-clock fa-2x me-3"></i>
+                            <div>
+                                <h5 class="alert-heading mb-1">Auto-Update Active</h5>
+                                <p class="mb-0">
+                                    {% if latest %}
+                                        Auto-update will check on next page load if 1 hour has passed since last update.
+                                    {% else %}
+                                        Update will occur immediately (no rate set)
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-3 p-3 bg-dark rounded">
+                        <small class="text-muted d-block mb-1">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Auto-update runs in the background when admin pages are accessed.
+                        </small>
+                        <small class="text-muted d-block">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            Manual rates override auto-update until next successful API fetch.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.display-4 {
+    font-size: 3rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.exchange-display {
+    position: relative;
+    padding: 2rem 0;
+}
+
+.currency-flag {
+    background: linear-gradient(135deg, #222 0%, #111 100%);
+    border: 2px solid var(--gold-accent);
+}
+
+.exchange-arrow {
+    position: relative;
+    top: 10px;
+}
+
+.rate-info {
+    background: rgba(200, 169, 126, 0.05);
+    border-radius: 10px;
+    padding: 1.5rem;
+    border: 1px solid rgba(200, 169, 126, 0.2);
+}
+
+.input-group-text {
+    border-color: #333 !important;
+    background-color: #111 !important;
+    color: var(--text-grey) !important;
+}
+
+.bg-dark-gold {
+    background-color: var(--gold-accent) !important;
+    color: #000 !important;
+}
+
+.border-gold {
+    border: 1px solid var(--gold-accent) !important;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+}
+
+.table tbody tr:hover {
+    background-color: rgba(200, 169, 126, 0.05);
+}
+
+@media (max-width: 768px) {
+    .display-4 {
+        font-size: 2rem;
+    }
+
+    .exchange-display {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .currency-from, .currency-to {
+        margin-bottom: 1rem;
+    }
+
+    .exchange-arrow {
+        transform: rotate(90deg);
+        margin: 1rem 0;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,353 @@
+{% extends "admin/base_admin.html" %}
+
+{% block page_title %}Branch Management{% endblock %}
+{% block page_subtitle %}Manage system branches and locations{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="section-label mb-1">Branch Management</h1>
+        <div class="divider"></div>
+        <p class="text-muted mb-0">Manage branches, locations, and agent assignments</p>
+    </div>
+
+    <a class="btn btn-gold px-4" href="/admin/branches/create">
+        <i class="fas fa-plus-circle me-2"></i>Add New Branch
+    </a>
+</div>
+
+<!-- Branch Statistics -->
+<div class="row mb-4">
+    <div class="col-md-4 mb-3">
+        <div class="isa-card h-100">
+            <div class="isa-card-body text-center p-4">
+                <div class="mb-3">
+                    <i class="fas fa-code-branch fa-3x text-gold"></i>
+                </div>
+                <h3 class="fw-bold text-gold mb-1">{{ branches|length }}</h3>
+                <small class="text-muted">Total Branches</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="isa-card h-100">
+            <div class="isa-card-body text-center p-4">
+                <div class="mb-3">
+                    <i class="fas fa-user-shield fa-3x text-info"></i>
+                </div>
+                {% set total_agents = 0 %}
+                {% for b in branches %}
+                    {% set total_agents = total_agents + (b.agent_count if b.agent_count else 0) %}
+                {% endfor %}
+                <h3 class="fw-bold text-info mb-1">{{ total_agents }}</h3>
+                <small class="text-muted">Assigned Agents</small>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4 mb-3">
+        <div class="isa-card h-100">
+            <div class="isa-card-body text-center p-4">
+                <div class="mb-3">
+                    <i class="fas fa-exchange-alt fa-3x text-success"></i>
+                </div>
+                <h3 class="fw-bold text-success mb-1">0</h3>
+                <small class="text-muted">Monthly Transactions</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="isa-card mb-4">
+    <div class="isa-card-header d-flex justify-content-between align-items-center">
+        <div>
+            <i class="fas fa-map-marker-alt me-2"></i>
+            System Branches
+        </div>
+        <div class="d-flex align-items-center">
+            <div class="input-group input-group-sm" style="width: 300px;">
+                <span class="input-group-text bg-dark border-secondary">
+                    <i class="fas fa-search text-gold"></i>
+                </span>
+                <input type="text" class="form-control isa-form-control" placeholder="Search branches..." id="branchSearch">
+            </div>
+        </div>
+    </div>
+
+    <div class="isa-card-body">
+        {% if branches %}
+        <div class="table-responsive">
+            <table class="table isa-table table-hover">
+                <thead>
+                    <tr>
+                        <th style="width: 80px;">ID</th>
+                        <th>Branch Details</th>
+                        <th>Location</th>
+                        <th>Agents</th>
+                        <th>Status</th>
+                        <th class="text-end" style="width: 120px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="branchTableBody">
+                    {% for b in branches %}
+                    <tr>
+                        <td>
+                            <span class="badge bg-dark text-gold px-3 py-2">#{{ b.id }}</span>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="flex-shrink-0">
+                                    <div class="branch-icon bg-dark rounded-circle d-flex align-items-center justify-content-center"
+                                         style="width: 40px; height: 40px;">
+                                        <i class="fas fa-code-branch text-gold"></i>
+                                    </div>
+                                </div>
+                                <div class="flex-grow-1 ms-3">
+                                    <strong class="d-block">{{ b.name }}</strong>
+                                    {% if b.code %}
+                                    <small class="text-muted d-block">
+                                        <i class="fas fa-hashtag me-1"></i>Code: {{ b.code }}
+                                    </small>
+                                    {% endif %}
+                                    {% if b.phone %}
+                                    <small class="text-muted d-block">
+                                        <i class="fas fa-phone me-1"></i>{{ b.phone }}
+                                    </small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-map-marker-alt text-gold me-2"></i>
+                                <div>
+                                    <div class="fw-medium">{{ b.location }}</div>
+                                    {% if b.city %}
+                                    <small class="text-muted">{{ b.city }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="agent-count">
+                                {% set agent_count = b.agent_count if b.agent_count else 0 %}
+                                {% if agent_count > 0 %}
+                                    <span class="badge bg-info px-3 py-2">
+                                        <i class="fas fa-users me-1"></i>{{ agent_count }} Agents
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary px-3 py-2">
+                                        <i class="fas fa-user-times me-1"></i>No Agents
+                                    </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if b.is_active %}
+                                <span class="badge bg-success px-3 py-2">
+                                    <i class="fas fa-check-circle me-1"></i>Active
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary px-3 py-2">
+                                    <i class="fas fa-times-circle me-1"></i>Inactive
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group" role="group">
+                                <a href="/admin/branches/{{ b.id }}/edit"
+                                   class="btn btn-sm btn-outline-gold"
+                                   title="Edit Branch">
+                                    <i class="fas fa-edit"></i>
+                                </a>
+                                <a href="/admin/branches/{{ b.id }}/delete"
+                                   class="btn btn-sm btn-outline-danger"
+                                   title="Delete Branch"
+                                   onclick="return confirmDeleteBranch('{{ b.name }}')">
+                                    <i class="fas fa-trash"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-5">
+            <i class="fas fa-code-branch fa-3x text-muted mb-3"></i>
+            <h4 class="text-muted mb-3">No Branches Found</h4>
+            <p class="text-muted mb-4">Get started by creating your first branch</p>
+            <a class="btn btn-gold px-4" href="/admin/branches/create">
+                <i class="fas fa-plus-circle me-2"></i>Create First Branch
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Branch Management Information -->
+<div class="row">
+    <div class="col-md-6 mb-3">
+        <div class="isa-card h-100">
+            <div class="isa-card-header">
+                <i class="fas fa-info-circle text-info me-2"></i>
+                About Branches
+            </div>
+            <div class="isa-card-body">
+                <p class="text-muted mb-3">
+                    Branches represent physical locations where agents operate. Each branch can have multiple agents assigned to it.
+                </p>
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <span class="text-muted">Organize agents by location</span>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-check text-success me-2"></i>
+                        <span class="text-muted">Track branch-specific performance</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-check text-success me-2"></i>
+                        <span class="text-muted">Generate location-based reports</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-6 mb-3">
+        <div class="isa-card h-100">
+            <div class="isa-card-header">
+                <i class="fas fa-lightbulb text-warning me-2"></i>
+                Branch Setup Tips
+            </div>
+            <div class="isa-card-body">
+                <ul class="list-unstyled mb-0">
+                    <li class="mb-2">
+                        <i class="fas fa-map-pin text-gold me-2"></i>
+                        <span class="text-muted">Use clear, descriptive branch names</span>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-users text-gold me-2"></i>
+                        <span class="text-muted">Assign agents to appropriate branches</span>
+                    </li>
+                    <li class="mb-2">
+                        <i class="fas fa-phone text-gold me-2"></i>
+                        <span class="text-muted">Include contact information for each branch</span>
+                    </li>
+                    <li>
+                        <i class="fas fa-chart-line text-gold me-2"></i>
+                        <span class="text-muted">Monitor branch performance regularly</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Additional custom styles for branch management */
+    .branch-icon {
+        background-color: #222;
+        border: 1px solid #333;
+    }
+
+    .agent-count .badge {
+        font-weight: 500;
+        letter-spacing: 0.5px;
+    }
+
+    .table-hover tbody tr:hover {
+        background-color: rgba(200, 169, 126, 0.1) !important;
+    }
+
+    .btn-group .btn {
+        border-radius: 4px;
+        margin: 0 2px;
+    }
+
+    @media (max-width: 768px) {
+        .d-flex.justify-content-between {
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .input-group {
+            width: 100% !important;
+            margin-top: 1rem;
+        }
+
+        .btn-group {
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .btn-group .btn {
+            margin: 0;
+            width: 100%;
+        }
+    }
+</style>
+
+<script>
+    // Search functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('branchSearch');
+        const tableBody = document.getElementById('branchTableBody');
+
+        if (searchInput && tableBody) {
+            const rows = tableBody.getElementsByTagName('tr');
+
+            searchInput.addEventListener('keyup', function() {
+                const searchTerm = this.value.toLowerCase();
+
+                for (let row of rows) {
+                    const text = row.textContent.toLowerCase();
+                    row.style.display = text.includes(searchTerm) ? '' : 'none';
+                }
+            });
+        }
+
+        // Delete confirmation function
+        window.confirmDeleteBranch = function(branchName) {
+            return confirm(`Are you sure you want to delete the branch "${branchName}"?\n\nThis will also unassign any agents from this branch.\nThis action cannot be undone.`);
+        };
+
+        // Add confirmation to all delete links
+        const deleteLinks = document.querySelectorAll('a[href*="/delete"]');
+        deleteLinks.forEach(link => {
+            if (!link.hasAttribute('onclick')) {
+                link.addEventListener('click', function(e) {
+                    const branchName = this.closest('tr').querySelector('strong').textContent;
+                    if (!confirm(`Are you sure you want to delete the branch "${branchName}"?\n\nThis will also unassign any agents from this branch.\nThis action cannot be undone.`)) {
+                        e.preventDefault();
+                    }
+                });
+            }
+        });
+
+        // Add edit links if they don't exist
+        const rows = document.querySelectorAll('#branchTableBody tr');
+        rows.forEach(row => {
+            const branchId = row.querySelector('.badge').textContent.replace('#', '');
+            const actionsCell = row.querySelector('td:last-child');
+            const deleteLink = actionsCell.querySelector('a[href*="/delete"]');
+
+            // Check if edit link exists
+            if (!actionsCell.querySelector('a[href*="/edit"]')) {
+                const editLink = document.createElement('a');
+                editLink.href = `/admin/branches/${branchId}/edit`;
+                editLink.className = 'btn btn-sm btn-outline-gold';
+                editLink.title = 'Edit Branch';
+                editLink.innerHTML = '<i class="fas fa-edit"></i>';
+
+                // Insert before delete link
+                actionsCell.insertBefore(editLink, deleteLink);
+                actionsCell.insertBefore(document.createTextNode(' '), deleteLink);
+            }
+        });
+    });
+</script>
+{% endblock %}

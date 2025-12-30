@@ -1,0 +1,39 @@
+{% extends "base_agent.html" %}
+{% block content %}
+
+<h2 class="mb-4 fw-bold">Pending Transactions</h2>
+
+{% if txs %}
+<table class="table table-bordered table-hover">
+    <thead class="table-dark">
+    <tr>
+        <th>ID</th>
+        <th>Sender</th>
+        <th>Receiver</th>
+        <th>Amount</th>
+        <th>Currency</th>
+        <th>Action</th>
+    </tr>
+    </thead>
+
+    <tbody>
+    {% for t in txs %}
+    <tr>
+        <td>{{ t.transaction_id }}</td>
+        <td>{{ t.sender_name }}</td>
+        <td>{{ t.receiver_name }}</td>
+        <td>{{ t.amount_local }}</td>
+        <td>{{ t.currency_code }}</td>
+        <td>
+            <a href="/agent/verify/{{ t.transaction_id }}" class="btn btn-primary btn-sm">Verify</a>
+        </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+
+</table>
+{% else %}
+<div class="alert alert-warning">No pending transactions.</div>
+{% endif %}
+
+{% endblock %}

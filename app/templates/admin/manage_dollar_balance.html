@@ -1,0 +1,342 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+
+                <i class="fas fa-coins me-2 text-warning"></i>
+                Manage Dollar Balance
+            </h2>
+            <p class="text-muted mb-0">Manually add or deduct funds from the system USD balance</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i>
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Current Balance Card -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card border-primary shadow-sm">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-balance-scale me-2"></i>
+                        Current System Balance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <h1 class="fw-bold mb-0" id="currentBalance">
+                                ${{ "%.2f"|format(balance.current_balance) if balance else "0.00" }}
+                            </h1>
+                            <small class="text-muted">
+                                Last updated: {{ balance.last_updated|format_date if balance and balance.last_updated else 'Never' }}
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            <div class="alert alert-light">
+                                <h6 class="alert-heading">Balance Status</h6>
+                                {% set bal = balance.current_balance if balance else 0 %}
+                                {% if bal < 1000 %}
+                                <span class="badge bg-danger">CRITICALLY LOW</span>
+                                <p class="mb-0 small">Consider adding funds immediately</p>
+                                {% elif bal < 5000 %}
+                                <span class="badge bg-warning">LOW</span>
+                                <p class="mb-0 small">Monitor balance closely</p>
+                                {% else %}
+                                <span class="badge bg-success">HEALTHY</span>
+                                <p class="mb-0 small">Balance is sufficient</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-info shadow-sm h-100">
+                <div class="card-header bg-info text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-lightbulb me-2"></i>
+                        Quick Stats
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-exchange-alt text-muted me-2"></i>
+                            <strong>Transactions Today:</strong> 
+                            <span class="float-end">{{ today_count|default(0) }}</span>
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-arrow-up text-danger me-2"></i>
+                            <strong>Total Outflow:</strong> 
+                            <span class="float-end">${{ total_outflow|default(0)|round(2) }}</span>
+                        </li>
+                        <li>
+                            <i class="fas fa-arrow-down text-success me-2"></i>
+                            <strong>Total Inflow:</strong> 
+                            <span class="float-end">${{ total_inflow|default(0)|round(2) }}</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Adjustment Forms -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-success">
+                <div class="card-header bg-success text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-plus-circle me-2"></i>
+                        Add Funds to Balance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="addForm">
+                        <input type="hidden" name="action" value="add">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Amount to Add (USD)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="amount" class="form-control" 
+                                       step="0.01" min="0.01" required
+                                       placeholder="Enter amount to add">
+                            </div>
+                            <small class="text-muted">Enter the USD amount to add to system balance</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Reason / Notes</label>
+                            <textarea name="notes" class="form-control" rows="3" 
+                                      placeholder="Explain why you're adding these funds (e.g., Bank deposit, Cash collection, etc.)"
+                                      required></textarea>
+                            <small class="text-muted">Provide details for audit purposes</small>
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="fas fa-check-circle me-1"></i>
+                                Add Funds to Balance
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6">
+            <div class="card shadow-sm border-warning">
+                <div class="card-header bg-warning text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-minus-circle me-2"></i>
+                        Deduct Funds from Balance
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" id="deductForm">
+                        <input type="hidden" name="action" value="subtract">
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Amount to Deduct (USD)</label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input type="number" name="amount" class="form-control" 
+                                       step="0.01" min="0.01" max="{{ balance.current_balance if balance else 0 }}"
+                                       required placeholder="Enter amount to deduct">
+                            </div>
+                            <small class="text-muted">Maximum: ${{ "%.2f"|format(balance.current_balance) if balance else "0.00" }}</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Reason / Notes</label>
+                            <textarea name="notes" class="form-control" rows="3" 
+                                      placeholder="Explain why you're deducting these funds (e.g., Bank withdrawal, Expense, Correction, etc.)"
+                                      required></textarea>
+                            <small class="text-muted">Provide details for audit purposes</small>
+                        </div>
+                        
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <strong>Warning:</strong> Deducting funds reduces the system's available USD balance. 
+                            Ensure this is correct before proceeding.
+                        </div>
+                        
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-warning btn-lg">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                Deduct Funds from Balance
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Adjustments -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-light py-3">
+            <h5 class="mb-0">
+                <i class="fas fa-history me-2"></i>
+                Recent Manual Adjustments
+            </h5>
+        </div>
+        <div class="card-body p-0">
+            {% if recent_logs %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Date/Time</th>
+                            <th>Type</th>
+                            <th>Description</th>
+                            <th class="text-end">Amount</th>
+                            <th class="text-end">New Balance</th>
+                            <th>Created By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in recent_logs %}
+                        <tr>
+                            <td>
+                                <div>{{ log.timestamp|format_date if log.timestamp else 'N/A' }}</div>
+                                <small class="text-muted">{{ log.timestamp|time_ago if log.timestamp else '' }}</small>
+                            </td>
+                            <td>
+                                {% if log.change_type == 'manual_adjustment' %}
+                                <span class="badge bg-warning">Manual</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ log.change_type|title }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="text-truncate" style="max-width: 250px;">
+                                    {{ log.description or 'No description' }}
+                                </div>
+                            </td>
+                            <td class="text-end fw-bold {% if log.change_amount > 0 %}text-success{% else %}text-danger{% endif %}">
+                                {{ '+' if log.change_amount > 0 else '' }}${{ "%.2f"|format(log.change_amount) }}
+                            </td>
+                            <td class="text-end fw-bold">
+                                ${{ "%.2f"|format(log.new_balance) if log.new_balance else '0.00' }}
+                            </td>
+                            <td>
+                                {% if log.created_by %}
+                                <small>User #{{ log.created_by }}</small>
+                                {% else %}
+                                <small class="text-muted">System</small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-inbox fa-3x mb-3"></i>
+                <p>No manual adjustments found</p>
+            </div>
+            {% endif %}
+        </div>
+        {% if recent_logs %}
+        <div class="card-footer text-end">
+            <a href="{{ url_for('admin.dollar_balance_logs') }}" class="btn btn-sm btn-outline-primary">
+                View All Balance Logs
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 10px;
+}
+.input-group-text {
+    background-color: #f8f9fa;
+}
+.btn {
+    border-radius: 8px;
+}
+.badge {
+    border-radius: 6px;
+}
+.alert {
+    border-radius: 8px;
+}
+</style>
+
+<script>
+// Form validation
+document.addEventListener('DOMContentLoaded', function() {
+    const addForm = document.getElementById('addForm');
+    const deductForm = document.getElementById('deductForm');
+    
+    if (addForm) {
+        addForm.addEventListener('submit', function(e) {
+            const amount = parseFloat(this.querySelector('input[name="amount"]').value);
+            const notes = this.querySelector('textarea[name="notes"]').value.trim();
+            
+            if (amount <= 0) {
+                e.preventDefault();
+                alert('Please enter a valid amount greater than 0');
+                return false;
+            }
+            
+            if (!notes) {
+                e.preventDefault();
+                alert('Please provide a reason for adding funds');
+                return false;
+            }
+            
+            if (!confirm(`Confirm: Add $${amount.toFixed(2)} to system balance?\n\nReason: ${notes}`)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    }
+    
+    if (deductForm) {
+        deductForm.addEventListener('submit', function(e) {
+            const amount = parseFloat(this.querySelector('input[name="amount"]').value);
+            const notes = this.querySelector('textarea[name="notes"]').value.trim();
+            const currentBalance = parseFloat('{{ balance.current_balance if balance else 0 }}');
+            
+            if (amount <= 0) {
+                e.preventDefault();
+                alert('Please enter a valid amount greater than 0');
+                return false;
+            }
+            
+            if (amount > currentBalance) {
+                e.preventDefault();
+                alert(`Cannot deduct $${amount.toFixed(2)} - current balance is only $${currentBalance.toFixed(2)}`);
+                return false;
+            }
+            
+            if (!notes) {
+                e.preventDefault();
+                alert('Please provide a reason for deducting funds');
+                return false;
+            }
+            
+            if (!confirm(`WARNING: Deduct $${amount.toFixed(2)} from system balance?\n\nNew balance will be: $${(currentBalance - amount).toFixed(2)}\n\nReason: ${notes}`)) {
+                e.preventDefault();
+                return false;
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

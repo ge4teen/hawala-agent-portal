@@ -1,0 +1,64 @@
+{% extends "base_agent.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Debug: Available Transactions</h2>
+
+    <div class="alert alert-info">
+        <h4>Agent ID: {{ debug_info.agent_id }}</h4>
+        <p>Total transactions with available_to_all=1: {{ debug_info.total_available_in_db }}</p>
+        <p>Fixed query result count: {{ debug_info.query_result_count }}</p>
+        <p>Query transaction IDs: {{ debug_info.query_transaction_ids|join(', ') or 'None' }}</p>
+    </div>
+
+    <h4>All Available Transactions in Database:</h4>
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Transaction ID</th>
+                <th>Sender → Receiver</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Available</th>
+                <th>Agent ID</th>
+                <th>Picked By</th>
+                <th>Timestamp</th>
+                <th>Available for Me?</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for tx in debug_info.transactions %}
+            <tr class="{% if tx.is_available_for_me %}table-success{% endif %}">
+                <td><code>{{ tx.transaction_id }}</code></td>
+                <td>{{ tx.sender }} → {{ tx.receiver }}</td>
+                <td>ZAR {{ "%.2f"|format(tx.amount) }}</td>
+                <td>
+                    <span class="badge bg-{% if tx.status == 'pending' %}warning{% else %}success{% endif %}">
+                        {{ tx.status }}
+                    </span>
+                </td>
+                <td>
+                    <span class="badge bg-{% if tx.available_to_all == 1 %}success{% else %}secondary{% endif %}">
+                        {{ tx.available_to_all }}
+                    </span>
+                </td>
+                <td>{{ tx.agent_id or 'NULL' }}</td>
+                <td>{{ tx.picked_by or 'NULL' }}</td>
+                <td><small>{{ tx.timestamp }}</small></td>
+                <td>
+                    {% if tx.is_available_for_me %}
+                        <span class="badge bg-success">YES</span>
+                    {% else %}
+                        <span class="badge bg-secondary">NO</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <a href="{{ url_for('agent.available_transactions') }}" class="btn btn-primary">
+        Back to Available Transactions
+    </a>
+</div>
+{% endblock %}

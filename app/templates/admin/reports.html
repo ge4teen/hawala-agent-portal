@@ -1,0 +1,319 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">Reports Overview</h2>
+    <p class="text-muted mb-4">Select a report type to view detailed transaction analytics and financial summaries.</p>
+
+    <div class="row">
+        <!-- Daily Reports -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-primary text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-day me-2"></i>
+                        Daily Report
+                    </h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text flex-grow-1">
+                        View all transactions processed today with detailed breakdown by agent,
+                        branch, and payment method.
+                    </p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.reports_daily') }}" class="btn btn-primary w-100">
+                            <i class="fas fa-chart-line me-1"></i>
+                            View Detailed Daily Report
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Updated in real-time
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Reports -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-success text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar-alt me-2"></i>
+                        Monthly Report
+                    </h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text flex-grow-1">
+                        Get comprehensive financial summaries, trends, and performance metrics
+                        for any month with filtering options.
+                    </p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.reports_monthly') }}" class="btn btn-success w-100">
+                            <i class="fas fa-chart-bar me-1"></i>
+                            View Detailed Monthly Report
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        <i class="fas fa-filter me-1"></i>
+                        Filter by month and year
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Yearly Reports -->
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-info text-white py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-calendar me-2"></i>
+                        Yearly Report
+                    </h5>
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <p class="card-text flex-grow-1">
+                        Generate annual insights, growth trends, and performance statistics
+                        with comparative analysis.
+                    </p>
+                    <div class="mt-auto">
+                        <a href="{{ url_for('admin.reports_yearly') }}" class="btn btn-info w-100">
+                            <i class="fas fa-chart-pie me-1"></i>
+                            View Detailed Yearly Report
+                        </a>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        <i class="fas fa-chart-area me-1"></i>
+                        Multi-year comparison
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Data Tables -->
+    <div class="row mt-5">
+        <!-- Last 30 Days -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2 text-primary"></i>
+                        Last 30 Days
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Date</th>
+                                    <th class="text-end">Transactions</th>
+                                    <th class="text-end">Volume (ZAR)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if daily %}
+                                    {% for day in daily[:10] %}
+                                    <tr>
+                                        <td>{{ day.day }}</td>
+                                        <td class="text-end">{{ day.ct }}</td>
+                                        <td class="text-end fw-bold">{{ "%.2f"|format(day.total) }}</td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    {% if daily|length > 10 %}
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted py-2">
+                                            <small>Showing 10 of {{ daily|length }} days</small>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center py-4 text-muted">
+                                            No daily data available
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent py-2">
+                    <small class="text-muted">
+                        <i class="fas fa-database me-1"></i>
+                        {{ daily|length if daily else 0 }} days of data
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Monthly Summary -->
+        <div class="col-lg-6 mb-4">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-bar me-2 text-success"></i>
+                        Monthly Summary
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Month</th>
+                                    <th class="text-end">Transactions</th>
+                                    <th class="text-end">Volume (ZAR)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% if monthly %}
+                                    {% for month in monthly[:8] %}
+                                    <tr>
+                                        <td>{{ month.month }}</td>
+                                        <td class="text-end">{{ month.ct }}</td>
+                                        <td class="text-end fw-bold">{{ "%.2f"|format(month.total) }}</td>
+                                    </tr>
+                                    {% endfor %}
+
+                                    {% if monthly|length > 8 %}
+                                    <tr>
+                                        <td colspan="3" class="text-center text-muted py-2">
+                                            <small>Showing 8 of {{ monthly|length }} months</small>
+                                        </td>
+                                    </tr>
+                                    {% endif %}
+                                {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center py-4 text-muted">
+                                            No monthly data available
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent py-2">
+                    <small class="text-muted">
+                        <i class="fas fa-calendar-alt me-1"></i>
+                        {{ monthly|length if monthly else 0 }} months of data
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yearly Overview -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-light py-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-chart-line me-2 text-info"></i>
+                        Yearly Overview
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if yearly %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Year</th>
+                                    <th class="text-end">Transactions</th>
+                                    <th class="text-end">Volume (ZAR)</th>
+                                    <th class="text-end">Avg. Transaction</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for year in yearly %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ year.year }}</strong>
+                                    </td>
+                                    <td class="text-end">{{ year.ct }}</td>
+                                    <td class="text-end fw-bold">{{ "%.2f"|format(year.total) }}</td>
+                                    <td class="text-end text-muted">
+                                        {{ "%.2f"|format(year.total / year.ct) if year.ct > 0 else "0.00" }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="fas fa-inbox fa-2x mb-3"></i>
+                        <p>No yearly data available</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-light border">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="mb-1">
+                            <i class="fas fa-bolt me-1 text-warning"></i>
+                            Quick Actions
+                        </h6>
+                        <small class="text-muted">Generate specific reports or export data</small>
+                    </div>
+                    <div>
+                        <a href="{{ url_for('admin.reports_daily') }}" class="btn btn-outline-primary btn-sm me-2">
+                            <i class="fas fa-file-export me-1"></i> Export Daily
+                        </a>
+                        <a href="{{ url_for('admin.reports_monthly') }}" class="btn btn-outline-success btn-sm me-2">
+                            <i class="fas fa-file-pdf me-1"></i> Monthly PDF
+                        </a>
+                        <a href="{{ url_for('admin.reports_yearly') }}" class="btn btn-outline-info btn-sm">
+                            <i class="fas fa-file-excel me-1"></i> Yearly Excel
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 10px;
+    transition: transform 0.2s;
+}
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 15px rgba(0,0,0,0.1) !important;
+}
+.card-header {
+    border-radius: 10px 10px 0 0 !important;
+}
+.table th {
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+.table td {
+    vertical-align: middle;
+}
+.btn {
+    border-radius: 8px;
+    font-weight: 500;
+}
+.alert-light {
+    border-radius: 10px;
+}
+</style>
+{% endblock %}

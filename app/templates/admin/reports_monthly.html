@@ -1,0 +1,347 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Monthly Transactions Report</h2>
+            <p class="text-muted mb-0">Last 12 months summary</p>
+        </div>
+        <div>
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('admin.reports_daily') }}" class="btn btn-outline-primary">Daily</a>
+                <a href="{{ url_for('admin.reports_monthly') }}" class="btn btn-primary active">Monthly</a>
+                <a href="{{ url_for('admin.reports_yearly') }}" class="btn btn-outline-primary">Yearly</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Total Months</h6>
+                            <h3 class="mb-0">{{ rows|length }}</h3>
+                        </div>
+                        <div class="text-primary">
+                            <i class="fas fa-calendar-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Total Transactions</h6>
+                            <h3 class="mb-0">{{ rows|sum(attribute='count') }}</h3>
+                        </div>
+                        <div class="text-success">
+                            <i class="fas fa-exchange-alt fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Total Volume</h6>
+                            <h3 class="mb-0">ZAR {{ "%.2f"|format(rows|sum(attribute='total')|float) }}</h3>
+                        </div>
+                        <div class="text-info">
+                            <i class="fas fa-chart-line fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="card-title text-muted">Avg. Monthly</h6>
+                            <h3 class="mb-0">
+                                {% if rows|length > 0 %}
+                                    ZAR {{ "%.2f"|format((rows|sum(attribute='total')|float)/rows|length) }}
+                                {% else %}
+                                    ZAR 0.00
+                                {% endif %}
+                            </h3>
+                        </div>
+                        <div class="text-warning">
+                            <i class="fas fa-chart-bar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Month Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.reports_monthly') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label for="year" class="form-label">Year</label>
+                    <select class="form-control" id="year" name="year">
+                        <option value="">All Years</option>
+                        {% if available_years %}
+                            {% for year in available_years %}
+                                <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>
+                                    {{ year }}
+                                </option>
+                            {% endfor %}
+                        {% endif %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="month" class="form-label">Month</label>
+                    <select class="form-control" id="month" name="month">
+                        <option value="">All Months</option>
+                        <option value="01" {% if selected_month =='01' %}selected{% endif %}>January</option>
+                        <option value="02" {% if selected_month =='02' %}selected{% endif %}>February</option>
+                        <option value="03" {% if selected_month =='03' %}selected{% endif %}>March</option>
+                        <option value="04" {% if selected_month =='04' %}selected{% endif %}>April</option>
+                        <option value="05" {% if selected_month =='05' %}selected{% endif %}>May</option>
+                        <option value="06" {% if selected_month =='06' %}selected{% endif %}>June</option>
+                        <option value="07" {% if selected_month =='07' %}selected{% endif %}>July</option>
+                        <option value="08" {% if selected_month =='08' %}selected{% endif %}>August</option>
+                        <option value="09" {% if selected_month =='09' %}selected{% endif %}>September</option>
+                        <option value="10" {% if selected_month =='10' %}selected{% endif %}>October</option>
+                        <option value="11" {% if selected_month =='11' %}selected{% endif %}>November</option>
+                        <option value="12" {% if selected_month =='12' %}selected{% endif %}>December</option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">Filter</button>
+                        <a href="{{ url_for('admin.reports_monthly') }}" class="btn btn-secondary">Reset</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Monthly Summary Table -->
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Monthly Summary</h5>
+            <span class="badge bg-primary">
+                {% if rows %}
+                    {{ rows|length }} month{% if rows|length != 1 %}s{% endif %}
+                {% else %}
+                    0 months
+                {% endif %}
+            </span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Month</th>
+                            <th>Transactions</th>
+                            <th>Total Volume (ZAR)</th>
+                            <th>Average Transaction</th>
+                            <th>Growth %</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if rows %}
+                            {% for month in rows %}
+                            <tr>
+                                <td>
+                                    <strong>{{ month['month'] }}</strong>
+                                </td>
+                                <td>
+                                    <span class="badge bg-primary rounded-pill">{{ month['count'] }}</span>
+                                </td>
+                                <td class="fw-bold">ZAR {{ "%.2f"|format(month['total']|float) }}</td>
+                                <td>
+                                    {% if month['count'] > 0 %}
+                                        ZAR {{ "%.2f"|format(month['total']|float/month['count']) }}
+                                    {% else %}
+                                        ZAR 0.00
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if loop.index0 > 0 %}
+                                        {% set prev_month = rows[loop.index0 - 1] %}
+                                        {% if prev_month['total']|float > 0 %}
+                                            {% set growth = ((month['total']|float - prev_month['total']|float) / prev_month['total']|float * 100) %}
+                                            <span class="badge {% if growth > 0 %}bg-success{% else %}bg-danger{% endif %}">
+                                                {{ "%.1f"|format(growth) }}%
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-info">N/A</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-secondary">N/A</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('admin.reports_daily') }}?month={{ month['month'] }}"
+                                       class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-calendar-day"></i> View Days
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-4">
+                                    <div class="text-muted">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        <p>No monthly data available</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% if rows %}
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <div class="text-muted">
+                Showing {{ rows|length }} month{% if rows|length != 1 %}s{% endif %} of data
+            </div>
+            <div>
+                <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-print"></i> Print Report
+                </button>
+                <button onclick="exportMonthlyCSV()" class="btn btn-outline-success btn-sm">
+                    <i class="fas fa-download"></i> Export CSV
+                </button>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Chart Section -->
+    {% if rows and rows|length > 0 %}
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Monthly Volume Trend</h5>
+                </div>
+                <div class="card-body">
+                    <div id="monthlyChart" style="height: 300px;">
+                        <div class="text-center py-5">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">Monthly volume chart would appear here</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Top 3 Months</h5>
+                </div>
+                <div class="card-body">
+                    {% set top_months = rows|sort(attribute='total', reverse=True) %}
+                    {% if top_months|length > 0 %}
+                        {% set max_total = top_months[0]['total']|float %}
+                        {% for month in top_months[:3] %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>{{ month['month'] }}</span>
+                                <strong>ZAR {{ "%.2f"|format(month['total']|float) }}</strong>
+                            </div>
+                            <div class="progress" style="height: 8px;">
+                                {% if max_total > 0 %}
+                                    <div class="progress-bar bg-{{ loop.cycle('primary', 'success', 'info') }}"
+                                         style="width: {{ (month['total']|float / max_total * 100) }}%">
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-chart-bar fa-2x mb-2"></i>
+                            <p>No data available</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function exportMonthlyCSV() {
+    let csv = [];
+    let table = document.querySelector(".table");
+    let rows = table.querySelectorAll("tbody tr");
+
+    // Add headers
+    let headers = [];
+    table.querySelectorAll("thead th").forEach(th => {
+        if (th.innerText !== "Actions") {
+            headers.push(th.innerText);
+        }
+    });
+    csv.push(headers);
+
+    // Add data rows
+    rows.forEach(row => {
+        if (row.cells.length > 1 && !row.classList.contains('text-center')) {
+            let cols = [];
+            for(let i = 0; i < row.cells.length - 1; i++) { // Skip actions column
+                let text = row.cells[i].innerText.trim();
+                cols.push(text.includes(',') ? `"${text}"` : text);
+            }
+            csv.push(cols);
+        }
+    });
+
+    // Create and download CSV file
+    let csvContent = csv.map(row => row.join(',')).join('\n');
+    let blob = new Blob([csvContent], { type: 'text/csv' });
+    let url = window.URL.createObjectURL(blob);
+    let a = document.createElement('a');
+    a.href = url;
+
+    // Generate filename
+    let filename = 'monthly_report';
+    {% if selected_year %}
+        filename += '_{{ selected_year }}';
+    {% endif %}
+    {% if selected_month %}
+        filename += '_{{ selected_month }}';
+    {% endif %}
+    filename += '.csv';
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}
+</script>
+
+<style>
+.badge { font-weight: 500; }
+.progress { border-radius: 4px; }
+.bg-primary { background-color: #4e73df !important; }
+.bg-success { background-color: #1cc88a !important; }
+.bg-info { background-color: #36b9cc !important; }
+.bg-warning { background-color: #f6c23e !important; }
+.card { border-radius: 10px; margin-bottom: 1.5rem; }
+.table th { font-weight: 600; }
+</style>
+{% endblock %}

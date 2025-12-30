@@ -1,0 +1,237 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Transaction Details</h2>
+            <p class="text-muted mb-0">ID: {{ tx.transaction_id }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('admin.transactions') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Transaction Info -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Transaction Information</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Transaction ID:</th>
+                            <td class="font-monospace">{{ tx.transaction_id }}</td>
+                        </tr>
+                        <tr>
+                            <th>Status:</th>
+                            <td>
+                                {% if tx.status == 'pending' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% elif tx.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% elif tx.status == 'cancelled' %}
+                                    <span class="badge bg-danger">Cancelled</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Amount:</th>
+                            <td class="fw-bold">ZAR {{ "%.2f"|format(tx.amount_local) }}</td>
+                        </tr>
+                        <tr>
+                            <th>Created:</th>
+                            <td>{{ tx.timestamp }} by {{ tx.created_by_name or 'Admin' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Sender/Receiver Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Parties Involved</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Sender</h6>
+                            <p class="mb-1"><strong>{{ tx.sender_name }}</strong></p>
+                            <p class="text-muted">{{ tx.sender_phone }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Receiver</h6>
+                            <p class="mb-1"><strong>{{ tx.receiver_name }}</strong></p>
+                            <p class="text-muted">{{ tx.receiver_phone }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Assignment & Completion Info -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Assignment & Completion</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th>Assigned To:</th>
+                            <td>
+                                {% if tx.available_to_all == 1 %}
+                                    <span class="badge bg-warning">Available to All Agents</span>
+                                {% elif tx.agent_name %}
+                                    {{ tx.agent_name }} ({{ tx.agent_username }})
+                                {% else %}
+                                    <span class="text-muted">Unassigned</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        {% if tx.status == 'completed' %}
+                        <tr class="table-success">
+                            <th>Completed By:</th>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="fas fa-user-check fa-lg text-success me-3"></i>
+                                    <div>
+                                        <strong>{{ tx.completed_by_name or 'Unknown' }}</strong>
+                                        {% if tx.completed_by_username %}
+                                            <div class="text-muted">@{{ tx.completed_by_username }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Completed At:</th>
+                            <td>
+                                {{ tx.completed_at or 'Not recorded' }}
+                                {% if tx.completed_at %}
+                                    <br>
+                                    <small class="text-muted">
+                                        {{ ((now()|string_to_datetime if now() else '') - (tx.completed_at|string_to_datetime if tx.completed_at else ''))|time_ago }}
+                                    </small>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        
+                        <!-- Verification status -->
+                        <tr>
+                            <th>Verified:</th>
+                            <td>
+                                {% if tx.verified_by %}
+                                    <span class="badge bg-success">Yes</span>
+                                    by {{ tx.verified_by_name or 'Admin' }}
+                                {% else %}
+                                    <span class="badge bg-warning">Not Verified</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endif %}
+                        
+                        <tr>
+                            <th>Branch:</th>
+                            <td>{{ tx.branch_name or 'Not specified' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        <a href="{{ url_for('admin.edit_transaction', txid=tx.transaction_id) }}" 
+                           class="btn btn-primary">
+                            <i class="fas fa-edit"></i> Edit Transaction
+                        </a>
+                        
+                        {% if tx.status == 'completed' and not tx.verified_by %}
+                        <form method="POST" action="{{ url_for('admin.verify_transaction', txid=tx.transaction_id) }}">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check-double"></i> Mark as Verified
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        {% if tx.status != 'completed' %}
+                        <form method="POST" action="{{ url_for('admin.mark_completed', txid=tx.transaction_id) }}">
+                            <button type="submit" class="btn btn-success">
+                                <i class="fas fa-check"></i> Mark as Completed
+                            </button>
+                        </form>
+                        {% endif %}
+                        
+                        <form method="POST" 
+                              action="{{ url_for('admin.delete_transaction', txid=tx.transaction_id) }}"
+                              onsubmit="return confirm('Delete this transaction permanently?');">
+                            <button type="submit" class="btn btn-danger">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Activity Log -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Activity Log</h5>
+        </div>
+        <div class="card-body">
+            {% if logs %}
+            <div class="table-responsive">
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td><small>{{ log.created_at }}</small></td>
+                            <td>
+                                {% if log.action == 'completed_tx' %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% elif log.action == 'sms_sent' %}
+                                    <span class="badge bg-info">SMS Sent</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ log.action }}</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ log.details }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center py-3">No activity log found for this transaction.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<style>
+.font-monospace {
+    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+}
+.card {
+    border-radius: 10px;
+}
+</style>
+{% endblock %}

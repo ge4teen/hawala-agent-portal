@@ -1,0 +1,598 @@
+{% extends "admin/base_admin.html" %}
+
+{% block page_title %}Admin Dashboard{% endblock %}
+{% block page_subtitle %}System overview and key metrics{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <!-- Total Transactions -->
+  <div class="col-md-3 mb-3">
+    <div class="isa-card h-100">
+      <div class="isa-card-body text-center p-4">
+        <div class="mb-3">
+          <i class="fas fa-exchange-alt fa-3x text-gold"></i>
+        </div>
+        <h6 class="text-uppercase text-muted mb-2">Total Transactions</h6>
+        <h2 class="fw-bold text-gold">{{ stats.total_transactions }}</h2>
+        <small class="text-muted d-block mt-2">All time transactions</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Total Agents -->
+  <div class="col-md-3 mb-3">
+    <div class="isa-card h-100">
+      <div class="isa-card-body text-center p-4">
+        <div class="mb-3">
+          <i class="fas fa-user-shield fa-3x text-info"></i>
+        </div>
+        <h6 class="text-uppercase text-muted mb-2">Active Agents</h6>
+        <h2 class="fw-bold text-info">{{ stats.total_agents }}</h2>
+        <small class="text-muted d-block mt-2">Currently active</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Today's Volume -->
+  <div class="col-md-3 mb-3">
+    <div class="isa-card h-100">
+      <div class="isa-card-body text-center p-4">
+        <div class="mb-3">
+          <i class="fas fa-chart-line fa-3x text-success"></i>
+        </div>
+        <h6 class="text-uppercase text-muted mb-2">Today's Volume</h6>
+        <h2 class="fw-bold text-success">ZAR {{ stats.today_volume|format_currency if stats.today_volume else '0.00' }}</h2>
+        <small class="text-muted d-block mt-2">24-hour volume</small>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exchange Rate -->
+  <div class="col-md-3 mb-3">
+    <div class="isa-card h-100">
+      <div class="isa-card-body text-center p-4">
+        <div class="mb-3">
+          <i class="fas fa-globe fa-3x text-warning"></i>
+        </div>
+        <h6 class="text-uppercase text-muted mb-2">Exchange Rate</h6>
+        <h2 class="fw-bold text-warning">{{ usd_zar if usd_zar else 'N/A' }}</h2>
+        <small class="text-muted d-block mt-2">USD → ZAR</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dollar Balance Counter -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="isa-card border-gold">
+      <div class="isa-card-header bg-dark-gold text-dark py-3">
+        <h5 class="mb-0">
+          <i class="fas fa-dollar-sign me-2"></i>
+          System Dollar Balance
+        </h5>
+      </div>
+      <div class="isa-card-body p-4">
+        <div class="row align-items-center">
+          <div class="col-md-8">
+            <div class="d-flex align-items-center">
+              <div class="me-4">
+                <h2 class="fw-bold mb-0" id="dollarBalance">Loading...</h2>
+                <small class="text-muted" id="balanceTimestamp">Last updated: --</small>
+              </div>
+
+              <!-- Balance Status Badge -->
+              <div>
+                <span class="badge badge-gold fs-6" id="balanceStatus">Active</span>
+              </div>
+            </div>
+
+            <!-- Balance Progress Bar -->
+            <div class="mt-3">
+              <div class="progress" style="height: 8px; background-color: #333;">
+                <div id="balanceProgress" class="progress-bar bg-success" role="progressbar" style="width: 75%"></div>
+              </div>
+              <div class="d-flex justify-content-between mt-1">
+                <small class="text-muted">Low</small>
+                <small class="text-muted" id="balanceThreshold">Threshold: $5,000</small>
+                <small class="text-muted">High</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-md-4 text-end">
+            <!-- Quick Actions -->
+            <div class="btn-group-vertical">
+              <button class="btn btn-outline-gold mb-2" onclick="updateDollarBalance()">
+                <i class="fas fa-sync-alt me-1"></i> Refresh Balance
+              </button>
+              <a href="{{ url_for('admin.manage_dollar_balance') }}" class="btn btn-gold">
+                <i class="fas fa-plus-circle me-1"></i> Add Funds
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Balance History (Last 5 changes) -->
+        <div class="mt-4" id="balanceHistory">
+          <h6 class="text-muted mb-3">
+            <i class="fas fa-history me-1"></i>
+            Recent Activity
+          </h6>
+          <div class="text-center">
+            <div class="spinner-border spinner-border-sm text-gold"></div>
+            <span class="ms-2">Loading transaction history...</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="d-flex justify-content-between align-items-center">
+      <div>
+        <a class="btn btn-gold px-4 me-2" href="{{ url_for('admin.create_transaction') }}">
+          <i class="fas fa-plus-circle me-1"></i> Create Transaction
+        </a>
+        <a class="btn btn-outline-gold px-4 me-2" href="{{ url_for('admin.agents') }}">
+          <i class="fas fa-user-plus me-1"></i> Manage Agents
+        </a>
+        <a class="btn btn-outline-gold px-4" href="{{ url_for('admin.manage_dollar_balance') }}">
+          <i class="fas fa-coins me-1"></i> Manage Dollar Balance
+        </a>
+      </div>
+
+      <!-- Auto-refresh toggle -->
+      <div class="form-check form-switch">
+        <input class="form-check-input" type="checkbox" id="autoRefreshToggle" checked style="background-color: #333;">
+        <label class="form-check-label text-muted" for="autoRefreshToggle">
+          Auto-refresh balance
+        </label>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Additional Stats Row -->
+<div class="row">
+  <!-- Recent Transactions -->
+  <div class="col-md-6 mb-4">
+    <div class="isa-card h-100">
+      <div class="isa-card-header">
+        <h6 class="mb-0">
+          <i class="fas fa-clock me-2"></i>
+          Recent Transactions
+        </h6>
+      </div>
+      <div class="isa-card-body">
+        {% if recent_transactions %}
+        <div class="table-responsive">
+          <table class="table isa-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for trans in recent_transactions[:5] %}
+              <tr>
+                <td><small class="text-muted">#{{ trans.id }}</small></td>
+                <td class="text-gold">${{ "%.2f"|format(trans.amount_usd) }}</td>
+                <td>
+                  {% if trans.status == 'completed' %}
+                    <span class="badge bg-success">Completed</span>
+                  {% elif trans.status == 'pending' %}
+                    <span class="badge bg-warning">Pending</span>
+                  {% elif trans.status == 'verified' %}
+                    <span class="badge bg-info">Verified</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ trans.status }}</span>
+                  {% endif %}
+                </td>
+                <td><small>{{ trans.created_at.strftime('%H:%M') }}</small></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="text-end mt-2">
+          <a href="{{ url_for('admin.transactions') }}" class="btn btn-sm btn-outline-gold">
+            View All Transactions
+          </a>
+        </div>
+        {% else %}
+        <div class="text-center py-4">
+          <i class="fas fa-exchange-alt fa-2x text-muted mb-3"></i>
+          <p class="text-muted">No recent transactions</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- System Health -->
+  <div class="col-md-6 mb-4">
+    <div class="isa-card h-100">
+      <div class="isa-card-header">
+        <h6 class="mb-0">
+          <i class="fas fa-heartbeat me-2"></i>
+          System Health
+        </h6>
+      </div>
+      <div class="isa-card-body">
+        <div class="row">
+          <!-- SMS Service -->
+          <div class="col-6 mb-3">
+            <div class="d-flex align-items-center">
+              <div class="bg-dark p-3 rounded me-3">
+                <i class="fas fa-sms fa-lg text-info"></i>
+              </div>
+              <div>
+                <h6 class="mb-0">SMS Service</h6>
+                <span class="badge bg-success">Online</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Database -->
+          <div class="col-6 mb-3">
+            <div class="d-flex align-items-center">
+              <div class="bg-dark p-3 rounded me-3">
+                <i class="fas fa-database fa-lg text-success"></i>
+              </div>
+              <div>
+                <h6 class="mb-0">Database</h6>
+                <span class="badge bg-success">Healthy</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Exchange Rates -->
+          <div class="col-6 mb-3">
+            <div class="d-flex align-items-center">
+              <div class="bg-dark p-3 rounded me-3">
+                <i class="fas fa-chart-line fa-lg text-warning"></i>
+              </div>
+              <div>
+                <h6 class="mb-0">Exchange Rates</h6>
+                <span class="badge bg-success">Updated</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Load -->
+          <div class="col-6 mb-3">
+            <div class="d-flex align-items-center">
+              <div class="bg-dark p-3 rounded me-3">
+                <i class="fas fa-server fa-lg text-gold"></i>
+              </div>
+              <div>
+                <h6 class="mb-0">System Load</h6>
+                <span class="badge bg-success">Normal</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-top border-secondary">
+          <small class="text-muted">
+            <i class="fas fa-info-circle me-1"></i>
+            Last system check: Just now
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- JavaScript for Dynamic Updates -->
+<script>
+// Function to fetch and update the dollar balance
+// Function to fetch and update the dollar balance - OPTIMIZED VERSION
+function updateDollarBalance() {
+    const balanceElement = document.getElementById('dollarBalance');
+    const timestampElement = document.getElementById('balanceTimestamp');
+    const statusElement = document.getElementById('balanceStatus');
+    const progressElement = document.getElementById('balanceProgress');
+    const historyElement = document.getElementById('balanceHistory');
+
+    // Show loading state only if not already loading
+    if (!balanceElement.innerHTML.includes('spinner')) {
+        balanceElement.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>';
+    }
+
+    // Use the FAST dashboard-specific endpoint
+    const startTime = Date.now();
+
+    fetch('/admin/api/dashboard-balance')
+        .then(response => {
+            const responseTime = Date.now() - startTime;
+            console.log(`Balance fetch took ${responseTime}ms`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.success) {
+                throw new Error(data.error || 'Failed to fetch balance');
+            }
+
+            const balance = parseFloat(data.balance);
+
+            // Format the balance
+            const formattedBalance = new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(balance);
+
+            // Update balance display - INSTANT
+            balanceElement.textContent = formattedBalance;
+
+            // Update timestamp
+            if (data.last_updated) {
+                const date = new Date(data.last_updated);
+                timestampElement.textContent = `Updated: ${date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`;
+            } else {
+                timestampElement.textContent = 'Just now';
+            }
+
+            // Update status based on balance - FAST
+            updateBalanceStatus(balance);
+
+            // Cache the balance for quick reference
+            window.lastBalance = balance;
+            window.lastBalanceUpdate = Date.now();
+
+        })
+        .catch(error => {
+            console.error('Balance fetch error:', error);
+
+            // Use cached balance if available
+            is (window.lastBalance !== undefined) {
+                const formattedBalance = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD'
+                }).format(window.lastBalance);
+
+                balanceElement.textContent = formattedBalance;
+                timestampElement.textContent = 'Using cached data';
+                updateBalanceStatus(window.lastBalance);
+            } else {
+                balanceElement.textContent = '$0.00';
+                timestampElement.textContent = 'Error loading';
+                statusElement.textContent = 'ERROR';
+                statusElement.className = 'badge bg-secondary fs-6';
+            }
+        });
+}
+
+// Optimized balance status update
+function updateBalanceStatus(balance) {
+    const statusElement = document.getElementById('balanceStatus');
+    const progressElement = document.getElementById('balanceProgress');
+
+    const lowThreshold = 1000;
+    const mediumThreshold = 5000;
+
+    if (balance < lowThreshold) {
+        statusElement.textContent = 'CRITICAL';
+        statusElement.className = 'badge bg-danger fs-6';
+        progressElement.className = 'progress-bar bg-danger';
+        progressElement.style.width = `${Math.min((balance / lowThreshold) * 100, 100)}%`;
+
+        // Only show warning once per session if critical
+        if (balance < 500 && !window.lowBalanceShown) {
+            showLowBalanceWarning(balance);
+            window.lowBalanceShown = true;
+        }
+    } else if (balance < mediumThreshold) {
+        statusElement.textContent = 'LOW';
+        statusElement.className = 'badge bg-warning fs-6';
+        progressElement.className = 'progress-bar bg-warning';
+        progressElement.style.width = `${((balance - lowThreshold) / (mediumThreshold - lowThreshold)) * 100}%`;
+    } else {
+        statusElement.textContent = 'HEALTHY';
+        statusElement.className = 'badge bg-success fs-6';
+        progressElement.className = 'progress-bar bg-success';
+        progressElement.style.width = '100%';
+    }
+}
+
+// Optimized low balance warning (only shows once)
+function showLowBalanceWarning(balance) {
+    if (document.getElementById('lowBalanceWarning')) return;
+
+    const warningHtml = `
+        <div class="isa-alert alert-warning alert-dismissible fade show mt-3" id="lowBalanceWarning">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Low Balance Alert</h5>
+                    <p class="mb-0">Balance: <strong>$${balance.toFixed(2)}</strong> -
+                    <a href="/admin/manage_dollar_balance" class="alert-link">Add funds now</a></p>
+                </div>
+            </div>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+
+    const balanceCard = document.querySelector('.isa-card.border-gold');
+    if (balanceCard) {
+        balanceCard.insertAdjacentHTML('afterend', warningHtml);
+    }
+}
+
+// Async history loading (non-blocking)
+function loadBalanceHistory() {
+    const historyElement = document.getElementById('balanceHistory');
+
+    // Show loading indicator
+    historyElement.innerHTML = `
+        <div class="text-center py-2">
+            <small class="text-muted">Loading history...</small>
+        </div>
+    `;
+
+    // Load history in background without blocking balance update
+    setTimeout(() => {
+        fetch('/admin/api/dashboard-balance/history')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.history && data.history.length > 0) {
+                    renderHistoryTable(data.history);
+                }
+            })
+            .catch(() => {
+                // Silently fail - history is secondary
+            });
+    }, 1000); // Delay history load by 1 second
+}
+
+// Initialize with cached data if available
+document.addEventListener('DOMContentLoaded', function() {
+    // Try to get initial balance from server-side variable FIRST
+    {% if dollar_balance is defined %}
+    const initialBalance = parseFloat({{ dollar_balance|default(0) }});
+    if (initialBalance > 0) {
+        const formattedBalance = new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: 'USD'
+        }).format(initialBalance);
+
+        document.getElementById('dollarBalance').textContent = formattedBalance;
+        updateBalanceStatus(initialBalance);
+
+        // Cache it
+        window.lastBalance = initialBalance;
+    }
+
+
+    // Then fetch fresh data (non-blocking)
+    setTimeout(updateDollarBalance, 100);
+
+    // Setup auto-refresh (longer interval)
+    setupAutoRefresh();
+
+    // Add efficient click handler
+    document.querySelector('[onclick*="updateDollarBalance"]').addEventListener('click', function(e) {
+        e.preventDefault();
+        updateDollarBalance();
+    });
+});
+
+// Optimized auto-refresh
+let refreshInterval;
+function setupAutoRefresh() {
+    const toggle = document.getElementById('autoRefreshToggle');
+
+    // Refresh every 2 minutes (not too frequent)
+    refreshInterval = setInterval(updateDollarBalance, 120000);
+
+    toggle.addEventListener('change', function() {
+        if (this.checked) {
+            refreshInterval = setInterval(updateDollarBalance, 120000);
+        } else {
+            clearInterval(refreshInterval);
+        }
+    });
+}
+
+// WebSocket/SSE for real-time updates (optional advanced feature)
+function setupRealtimeUpdates() {
+    if (window.EventSource) {
+        const eventSource = new EventSource('/admin/api/balance-updates');
+
+        eventSource.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            if (data.balance !== undefined) {
+                // INSTANT update when balance changes
+                const balanceElement = document.getElementById('dollarBalance');
+                const formattedBalance = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD'
+                }).format(data.balance);
+
+                balanceElement.textContent = formattedBalance;
+                updateBalanceStatus(data.balance);
+                window.lastBalance = data.balance;
+            }
+        };
+
+        eventSource.onerror = function() {
+            // Fall back to polling
+            console.log('SSE disconnected, using polling');
+            eventSource.close();
+        };
+    }
+}
+</script>
+{% endif %}
+
+
+<style>
+/* Additional custom styles */
+.isa-card.border-gold {
+    border: 1px solid var(--gold-accent) !important;
+}
+
+.bg-dark-gold {
+    background-color: var(--gold-accent) !important;
+    color: #000 !important;
+}
+
+.badge-gold {
+    background-color: var(--gold-accent);
+    color: #000;
+    border-radius: 8px;
+}
+
+.bg-dark {
+    background-color: #222 !important;
+}
+
+.progress {
+    background-color: #333;
+}
+
+.isa-table {
+    font-size: 0.9rem;
+}
+
+.isa-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-group-vertical .btn {
+    border-radius: 5px !important;
+}
+
+.form-switch .form-check-input:checked {
+    background-color: var(--gold-accent);
+    border-color: var(--gold-accent);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .d-flex.justify-content-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .btn-group-vertical {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}

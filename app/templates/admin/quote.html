@@ -1,0 +1,278 @@
+<!-- templates/admin/quote.html -->
+<div class="quote-breakdown">
+    <h6 class="border-bottom pb-2 mb-3">
+        <i class="fas fa-calculator me-2"></i>
+        Transaction Quote
+    </h6>
+
+    {% if breakdown %}
+    <div class="alert alert-success">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-check-circle fa-2x me-3"></i>
+            <div>
+                <h5 class="mb-1">Quote Generated Successfully!</h5>
+                <p class="mb-0">Review the transaction details below</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Transaction Summary -->
+        <div class="col-md-6 mb-4">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="fas fa-receipt me-2"></i>Transaction Summary</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <p class="mb-1"><strong>Sender:</strong></p>
+                            <p class="mb-1"><strong>Receiver:</strong></p>
+                            <p class="mb-0"><strong>Amount:</strong></p>
+                        </div>
+                        <div class="col-6 text-end">
+                            <p class="mb-1">{{ form.sender_name }}</p>
+                            <p class="mb-1">{{ form.receiver_name }}</p>
+                            <p class="mb-0">ZAR {{ "%.2f"|format(breakdown.amount_local) }}</p>
+                        </div>
+                    </div>
+
+                    <div class="exchange-display-small text-center mb-3">
+                        <div class="d-flex align-items-center justify-content-center">
+                            <div class="d-flex align-items-center me-3">
+                                <div class="currency-flag bg-dark rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width: 40px; height: 40px;">
+                                    <i class="fas fa-dollar-sign text-gold"></i>
+                                </div>
+                                <span class="ms-2">USD</span>
+                            </div>
+                            <i class="fas fa-exchange-alt text-gold mx-3"></i>
+                            <div class="d-flex align-items-center ms-3">
+                                <div class="currency-flag bg-dark rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width: 40px; height: 40px;">
+                                    <i class="fas fa-rand-sign text-gold"></i>
+                                </div>
+                                <span class="ms-2">ZAR</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Breakdown Details -->
+        <div class="col-md-6 mb-4">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <h6 class="mb-0"><i class="fas fa-list-alt me-2"></i>Cost Breakdown</h6>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td>Base Amount:</td>
+                            <td class="text-end">ZAR {{ "%.2f"|format(breakdown.amount_local) }}</td>
+                        </tr>
+                        {% if breakdown.fee_percent > 0 %}
+                        <tr>
+                            <td>Service Fee ({{ (breakdown.fee_percent/breakdown.amount_local*100)|round(1) if breakdown.amount_local > 0 else 0 }}%):</td>
+                            <td class="text-end text-danger">- ZAR {{ "%.2f"|format(breakdown.fee_percent) }}</td>
+                        </tr>
+                        {% endif %}
+                        {% if breakdown.flat_fee > 0 %}
+                        <tr>
+                            <td>Flat Fee:</td>
+                            <td class="text-end text-danger">- ZAR {{ "%.2f"|format(breakdown.flat_fee) }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr class="table-success">
+                            <td><strong>Total (ZAR):</strong></td>
+                            <td class="text-end"><strong>ZAR {{ "%.2f"|format(breakdown.subtotal) }}</strong></td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Exchange Rate Section -->
+    <div class="card border-gold mb-4">
+        <div class="card-header bg-dark-gold text-dark">
+            <h6 class="mb-0"><i class="fas fa-chart-line me-2"></i>Exchange Rate</h6>
+        </div>
+        <div class="card-body">
+            <div class="text-center mb-3">
+                <h2 class="text-gold mb-2">1 USD = {{ "%.2f"|format(breakdown.rate) }} ZAR</h2>
+                <span class="badge {% if breakdown.source == 'Manual' %}bg-warning{% else %}bg-info{% endif %}">
+                    <i class="fas fa-{% if breakdown.source == 'Manual' %}user-edit{% else %}plug{% endif %} me-1"></i>
+                    {{ breakdown.source }}
+                </span>
+                {% if breakdown.rate_updated %}
+                <p class="text-muted mt-2 mb-0"><small>Last updated: {{ breakdown.rate_updated }}</small></p>
+                {% endif %}
+            </div>
+
+            <div class="text-center">
+                <h3 class="text-success">USD Equivalent: ${{ "%.2f"|format(breakdown.amount_foreign) }}</h3>
+                <small class="text-muted">Based on current exchange rate</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden form fields -->
+    <div style="display: none;">
+        <input type="hidden" name="confirmed" value="true">
+        <input type="hidden" name="action" value="create">
+        <input type="hidden" name="exchange_rate" value="{{ breakdown.rate }}">
+        <input type="hidden" name="amount_usd" value="{{ "%.2f"|format(breakdown.amount_foreign) }}">
+        <input type="hidden" name="exchange_rate_source" value="{{ breakdown.source }}">
+
+        {% for key, value in form.items() %}
+            {% if key not in ['confirmed', 'action', 'exchange_rate', 'amount_usd', 'exchange_rate_source'] %}
+                <input type="hidden" name="{{ key }}" value="{{ value }}">
+            {% endif %}
+        {% endfor %}
+    </div>
+
+    <!-- Final Summary -->
+    <div class="alert alert-warning">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">Important Information</h5>
+                <p class="mb-0">
+                    This quote is valid for 15 minutes. The USD amount is calculated using the
+                    {% if breakdown.source == 'Manual' %}manually set{% else %}current{% endif %}
+                    exchange rate of {{ breakdown.rate }} ZAR/USD.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="alert alert-danger">
+        <div class="d-flex align-items-center">
+            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+            <div>
+                <h5 class="alert-heading mb-1">Quote Generation Failed</h5>
+                <p class="mb-0">Unable to generate quote. Please try again.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// When this quote page loads in modal, it's ready to be accepted
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Quote page loaded successfully');
+});
+
+
+// Check if this is being loaded in a modal
+if (window.parent !== window) {
+    // We're in a modal/iframe, listen for accept button
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'acceptQuoteBtn' || e.target.closest('#acceptQuoteBtn')) {
+            // Notify parent window
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'quoteAccepted',
+                    data: {
+                        exchange_rate: document.querySelector('input[name="exchange_rate"]')?.value,
+                        amount_usd: document.querySelector('input[name="amount_usd"]')?.value
+                    }
+                }, '*');
+            }
+        }
+    });
+}
+
+// Also add direct accept functionality
+const acceptQuote = function() {
+    // Find all hidden fields and ensure they're preserved
+    const hiddenFields = document.querySelectorAll('input[type="hidden"]');
+    hiddenFields.forEach(field => {
+        if (field.name && field.value) {
+            console.log(`Preserving: ${field.name} = ${field.value}`);
+        }
+    });
+
+    // Dispatch event for parent window
+    const event = new Event('quoteAccepted');
+    window.dispatchEvent(event);
+
+    return true;
+};
+
+// Expose function globally
+window.acceptQuote = acceptQuote;
+</script>
+
+<style>
+.currency-flag {
+    background: linear-gradient(135deg, #222 0%, #111 100%);
+    border: 1px solid var(--gold-accent);
+}
+
+.bg-dark-gold {
+    background-color: var(--gold-accent) !important;
+    color: #000 !important;
+}
+
+.border-gold {
+    border: 1px solid var(--gold-accent) !important;
+}
+
+.exchange-display-small {
+    background: rgba(200, 169, 126, 0.05);
+    border-radius: 8px;
+    padding: 1rem;
+    border: 1px solid rgba(200, 169, 126, 0.1);
+}
+
+.table-success {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+</style>
+
+!-- Add this script at the end of quote.html -->
+<script>
+// Check if this is being loaded in a modal
+if (window.parent !== window) {
+    // We're in a modal/iframe, listen for accept button
+    document.addEventListener('click', function(e) {
+        if (e.target.id === 'acceptQuoteBtn' || e.target.closest('#acceptQuoteBtn')) {
+            // Notify parent window
+            if (window.parent) {
+                window.parent.postMessage({
+                    type: 'quoteAccepted',
+                    data: {
+                        exchange_rate: document.querySelector('input[name="exchange_rate"]')?.value,
+                        amount_usd: document.querySelector('input[name="amount_usd"]')?.value
+                    }
+                }, '*');
+            }
+        }
+    });
+}
+
+// Also add direct accept functionality
+const acceptQuote = function() {
+    // Find all hidden fields and ensure they're preserved
+    const hiddenFields = document.querySelectorAll('input[type="hidden"]');
+    hiddenFields.forEach(field => {
+        if (field.name && field.value) {
+            console.log(`Preserving: ${field.name} = ${field.value}`);
+        }
+    });
+
+    // Dispatch event for parent window
+    const event = new Event('quoteAccepted');
+    window.dispatchEvent(event);
+
+    return true;
+};
+
+// Expose function globally
+window.acceptQuote = acceptQuote;
+</script>

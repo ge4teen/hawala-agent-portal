@@ -1,0 +1,355 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container">
+    <h2 class="mb-4">Create New Transaction</h2>
+
+    <!-- Simple Alert for Testing -->
+    <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Testing Mode:</strong> This is a simplified form to fix the available_to_all issue.
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Create Transaction (Simplified)</h5>
+        </div>
+        <div class="card-body">
+            <!-- SIMPLE FORM - No JavaScript tricks -->
+            <form method="post" action="{{ url_for('admin.create_transaction') }}">
+                <!-- Sender Information -->
+                <div class="card border-dark mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <i class="fas fa-user"></i> Sender Information
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Sender Name *</label>
+                                <input type="text" name="sender_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Sender Phone *</label>
+                                <input type="tel" name="sender_phone" class="form-control" required
+                                       placeholder="+27 XXX XXX XXXX">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Receiver Information -->
+                <div class="card border-dark mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <i class="fas fa-user-check"></i> Receiver Information
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Receiver Name *</label>
+                                <input type="text" name="receiver_name" class="form-control" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Receiver Phone *</label>
+                                <input type="tel" name="receiver_phone" class="form-control" required
+                                       placeholder="+27 XXX XXX XXXX">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction Amounts -->
+                <div class="card border-dark mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <i class="fas fa-money-bill-wave"></i> Amount Details
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Amount (ZAR) *</label>
+                                <input type="number" step="0.01" name="amount_local" class="form-control" required
+                                       id="amount_zar">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Currency</label>
+                                <select name="currency_code" class="form-control">
+                                    {% for c in currencies %}
+                                        <option value="{{ c.code }}">{{ c.code }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Branch</label>
+                                <select name="branch" class="form-control">
+                                    <option value="johannesburg">Johannesburg</option>
+                                    <option value="cape_town">Cape Town</option>
+                                    <option value="durban">Durban</option>
+                                    <option value="pretoria">Pretoria</option>
+                                    <option value="port_elizabeth">Port Elizabeth</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Get Quote Button -->
+                        <div class="row mb-3">
+                            <div class="col-md-12">
+                                <button type="button" class="btn btn-warning" id="get_quote_btn">
+                                    <i class="fas fa-calculator"></i> Get Quote
+                                </button>
+                                <small class="text-muted ms-2">
+                                    Click to calculate USD equivalent based on current exchange rate
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Quote Results (Hidden by default) -->
+                        <div class="row" id="quote_results" style="display: none;">
+                            <div class="col-md-12">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-chart-line"></i> Quote Results</h6>
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <p><strong>ZAR Amount:</strong> <span id="quote_zar">0.00</span></p>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <p><strong>Exchange Rate:</strong> <span id="quote_rate">18.50</span></p>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <p><strong>USD Equivalent:</strong> <span id="quote_usd">0.00</span></p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent Assignment -->
+                <div class="card border-dark mb-4">
+                    <div class="card-header bg-dark text-white">
+                        <i class="fas fa-users"></i> Agent Assignment
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Assign to Agent</label>
+                                <select name="agent_id" class="form-control" id="agent_select">
+                                    <option value="">-- Select Agent --</option>
+                                    {% for a in agents %}
+                                        <option value="{{ a.id }}">{{ a.full_name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Status</label>
+                                <select name="status" class="form-control">
+                                    <option value="pending">Pending</option>
+                                    <option value="completed">Completed</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- CRITICAL: AVAILABLE TO ALL CHECKBOX - SIMPLE VERSION -->
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="card border-info">
+                                    <div class="card-body">
+                                        <h5 class="mb-3">
+                                            <i class="fas fa-users text-info"></i>
+                                            Agent Availability
+                                        </h5>
+
+                                        <!-- OPTION 1: Radio buttons (more reliable) -->
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="available_to_all" id="available_yes" value="1">
+                                            <label class="form-check-label" for="available_yes">
+                                                <strong class="text-success">✅ Available to ALL Agents</strong>
+                                            </label>
+                                            <div class="ms-4 mt-1">
+                                                <small class="text-muted">
+                                                    Any agent can pick this transaction from their "Available Transactions" list.
+                                                    <br>
+                                                    <span class="text-warning">Agent selection will be ignored.</span>
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="radio" name="available_to_all" id="available_no" value="0" checked>
+                                            <label class="form-check-label" for="available_no">
+                                                <strong class="text-primary">Assign to Specific Agent Only</strong>
+                                            </label>
+                                            <div class="ms-4 mt-1">
+                                                <small class="text-muted">
+                                                    Transaction will be assigned only to the agent selected above.
+                                                    <br>
+                                                    Other agents cannot see or access this transaction.
+                                                </small>
+                                            </div>
+                                        </div>
+
+                                        <!-- Debug info -->
+                                        <div class="alert alert-secondary mt-3">
+                                            <small>
+                                                <strong>What gets sent to server:</strong><br>
+                                                • "Available to ALL Agents" → <code>available_to_all=1</code><br>
+                                                • "Assign to Specific Agent" → <code>available_to_all=0</code>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Submit buttons -->
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{{ url_for('admin.transactions') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> Back
+                    </a>
+
+                    <div>
+                        <!-- Direct create button -->
+                        <button type="submit" name="action" value="create" class="btn btn-success">
+                            <i class="fas fa-check"></i> Create Transaction
+                        </button>
+
+                        <!-- Test button to see form data -->
+                        <button type="button" class="btn btn-info ms-2" onclick="showFormData()">
+                            <i class="fas fa-code"></i> Debug Form
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Debug Panel -->
+    <div class="card mt-4" id="debugPanel" style="display: none;">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0">Form Debug Information</h5>
+        </div>
+        <div class="card-body">
+            <pre id="debugOutput" class="bg-dark text-light p-3"></pre>
+        </div>
+    </div>
+</div>
+
+<script>
+// Simple debug function
+function showFormData() {
+    const form = document.querySelector('form');
+    const formData = new FormData(form);
+    const output = {};
+
+    for (let [key, value] of formData.entries()) {
+        output[key] = value;
+    }
+
+    document.getElementById('debugOutput').textContent = JSON.stringify(output, null, 2);
+    document.getElementById('debugPanel').style.display = 'block';
+
+    // Also log to console
+    console.log('FORM DATA:', output);
+    console.log('available_to_all value:', output.available_to_all || 'undefined');
+}
+
+// Get Quote functionality
+document.getElementById('get_quote_btn').addEventListener('click', function() {
+    const zarAmount = document.getElementById('amount_zar').value;
+
+    if (!zarAmount || parseFloat(zarAmount) <= 0) {
+        alert('Please enter a valid ZAR amount first');
+        return;
+    }
+
+    // Mock exchange rate - you can replace this with real API call
+    const exchangeRate = 18.50; // Example rate: 1 USD = 18.50 ZAR
+    const usdAmount = (parseFloat(zarAmount) / exchangeRate).toFixed(2);
+
+    // Update display
+    document.getElementById('quote_zar').textContent = parseFloat(zarAmount).toFixed(2);
+    document.getElementById('quote_rate').textContent = exchangeRate.toFixed(2);
+    document.getElementById('quote_usd').textContent = usdAmount;
+
+    // Show results
+    document.getElementById('quote_results').style.display = 'block';
+
+    // You could also auto-populate hidden USD field if your backend needs it
+    // const usdField = document.createElement('input');
+    // usdField.type = 'hidden';
+    // usdField.name = 'amount_usd';
+    // usdField.value = usdAmount;
+    // document.querySelector('form').appendChild(usdField);
+
+    console.log('Quote calculated: ZAR', zarAmount, '= USD', usdAmount, 'at rate', exchangeRate);
+});
+
+// Auto-disable agent selection when "available to all" is selected
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.querySelector('form');
+    const availableYes = document.getElementById('available_yes');
+    const availableNo = document.getElementById('available_no');
+    const agentSelect = document.getElementById('agent_select');
+
+    function updateAgentField() {
+        if (availableYes.checked) {
+            agentSelect.disabled = true;
+            agentSelect.value = '';
+            agentSelect.style.backgroundColor = '#f0f0f0';
+            console.log('DEBUG: Available to ALL selected - agent selection disabled');
+        } else {
+            agentSelect.disabled = false;
+            agentSelect.style.backgroundColor = '';
+            console.log('DEBUG: Specific agent selected - agent selection enabled');
+        }
+    }
+
+    // Initial state
+    updateAgentField();
+
+    // Update on change
+    availableYes.addEventListener('change', updateAgentField);
+    availableNo.addEventListener('change', updateAgentField);
+
+    // Form submission logging
+    form.addEventListener('submit', function(e) {
+        const formData = new FormData(this);
+        console.log('=== FORM SUBMISSION DEBUG ===');
+        console.log('available_to_all:', formData.get('available_to_all'));
+        console.log('agent_id:', formData.get('agent_id'));
+        console.log('amount_local:', formData.get('amount_local'));
+        console.log('sender_phone:', formData.get('sender_phone'));
+        console.log('receiver_phone:', formData.get('receiver_phone'));
+        console.log('branch:', formData.get('branch'));
+        console.log('=============================');
+    });
+});
+</script>
+
+<style>
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+
+#debugPanel pre {
+    border-radius: 5px;
+    font-size: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.border-dark {
+    border-color: #343a40 !important;
+}
+
+.bg-dark {
+    background-color: #343a40 !important;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,308 @@
+{% extends "admin/base_admin.html" %}
+{% block content %}
+<div class="container-fluid">
+    <h2 class="mb-4">All Transactions</h2>
+
+    <!-- Transaction ID Search ONLY -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <form method="GET" action="{{ url_for('admin.transactions') }}" id="txidSearchForm">
+                        <div class="input-group">
+                            <span class="input-group-text bg-primary text-white">
+                                <i class="fas fa-hashtag"></i> ISA-
+                            </span>
+                            <input type="text"
+                                   class="form-control"
+                                   name="txid"
+                                   id="txidInput"
+                                   placeholder="Enter Transaction ID suffix (e.g., 20241231-ABC123)"
+                                   value="{{ request.args.get('txid', '').replace('ISA-', '') if request.args.get('txid') else '' }}"
+                                   autocomplete="off"
+                                   style="font-family: 'Courier New', monospace;">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="fas fa-search"></i> Find
+                            </button>
+                            {% if request.args.get('txid') %}
+                            <a href="{{ url_for('admin.transactions') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Enter the suffix after "ISA-" (e.g., for "ISA-20241231-ABC123", enter "20241231-ABC123")
+                        </small>
+                    </form>
+                </div>
+
+                <div class="col-md-4">
+                    <form method="GET" action="{{ url_for('admin.transactions') }}">
+                        <div class="input-group">
+                            <select name="status" class="form-select" onchange="this.form.submit()">
+                                <option value="">All Statuses</option>
+                                <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+                                <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>Completed</option>
+                                <option value="cancelled" {% if request.args.get('status') == 'cancelled' %}selected{% endif %}>Cancelled</option>
+                            </select>
+                            {% if request.args.get('status') %}
+                            <a href="{{ url_for('admin.transactions') }}" class="btn btn-outline-secondary" title="Clear Status Filter">
+                                <i class="fas fa-times"></i>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <div>
+                <h5 class="mb-0">Transaction List</h5>
+                {% if request.args.get('txid') %}
+                <small class="opacity-75">Searching for: <code>ISA-{{ request.args.get('txid') }}</code></small>
+                {% endif %}
+                {% if request.args.get('status') %}
+                <small class="opacity-75">• Status: {{ request.args.get('status')|title }}</small>
+                {% endif %}
+            </div>
+            <div>
+                <a href="{{ url_for('admin.create_transaction') }}" class="btn btn-light">
+                    <i class="fas fa-plus"></i> New Transaction
+                </a>
+            </div>
+        </div>
+
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th width="20%">Transaction ID</th>
+                            <th width="15%">Sender</th>
+                            <th width="15%">Receiver</th>
+                            <th width="10%">Amount</th>
+                            <th width="10%">Status</th>
+                            <th width="15%">Agent</th>
+                            <th width="10%">Date</th>
+                            <th width="5%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if txs %}
+                            {% for tx in txs %}
+                            {% set txid_suffix = tx.transaction_id.replace('ISA-', '') %}
+                            <tr class="{% if request.args.get('txid') and request.args.get('txid')|upper == txid_suffix|upper %}table-info{% endif %}">
+                                <td>
+                                    <code class="font-monospace"
+                                          style="cursor: pointer;"
+                                          onclick="copyToClipboard('{{ tx.transaction_id }}')"
+                                          title="Click to copy">
+                                        <span class="text-primary">ISA-</span>{{ txid_suffix }}
+                                    </code>
+                                </td>
+                                <td>
+                                    <div class="fw-medium">{{ tx.sender_name }}</div>
+                                    {% if tx.sender_phone %}
+                                    <small class="text-muted">{{ tx.sender_phone }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="fw-medium">{{ tx.receiver_name }}</div>
+                                    {% if tx.receiver_phone %}
+                                    <small class="text-muted">{{ tx.receiver_phone }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="fw-bold">ZAR {{ "%.2f"|format(tx.amount_local) }}</div>
+                                    <small class="text-success">${{ "%.2f"|format(tx.amount_foreign) if tx.amount_foreign else '0.00' }}</small>
+                                </td>
+
+                                <td>
+                                    {% if tx.status == 'pending' %}
+                                        <span class="badge bg-warning">Pending</span>
+                                    {% elif tx.status == 'completed' %}
+                                        <span class="badge bg-success">Completed</span>
+                                    {% elif tx.status == 'cancelled' %}
+                                        <span class="badge bg-danger">Cancelled</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ tx.status }}</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if tx.available_to_all == 1 %}
+                                        <span class="badge bg-info">
+                                            <i class="fas fa-users"></i> Available to All
+                                        </span>
+                                    {% elif tx.agent_name %}
+                                        <span class="badge bg-primary">{{ tx.agent_name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">Unassigned</span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <small>{{ tx.timestamp[:10] if tx.timestamp else '' }}</small>
+                                </td>
+
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <a href="{{ url_for('admin.edit_transaction', txid=tx.transaction_id) }}"
+                                           class="btn btn-outline-primary"
+                                           title="Edit">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="fas fa-inbox fa-3x mb-3"></i>
+                                        {% if request.args.get('txid') %}
+                                        <h5 class="mb-2">No transaction found</h5>
+                                        <p class="mb-0">No transaction found with ID: <code>ISA-{{ request.args.get('txid') }}</code></p>
+                                        {% else %}
+                                        <h5 class="mb-2">No transactions found</h5>
+                                        <p class="mb-0">Create your first transaction to get started</p>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        {% if txs %}
+        <div class="card-footer d-flex justify-content-between align-items-center">
+            <div class="text-muted">
+                <i class="fas fa-list me-1"></i> {{ txs|length }} transaction(s)
+            </div>
+            <div>
+                {% if request.args.get('txid') or request.args.get('status') %}
+                <a href="{{ url_for('admin.transactions') }}" class="btn btn-sm btn-outline-secondary">
+                    <i class="fas fa-redo me-1"></i> Clear Filters
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.card {
+    border-radius: 10px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+.font-monospace {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+}
+.table-info {
+    background-color: #e8f4fd !important;
+}
+.input-group-text {
+    min-width: 50px;
+    justify-content: center;
+    font-weight: bold;
+}
+</style>
+
+<script>
+// Auto-uppercase and auto-focus
+document.addEventListener('DOMContentLoaded', function() {
+    const txidInput = document.getElementById('txidInput');
+    if (txidInput) {
+        // Auto-focus on TXID input
+        txidInput.focus();
+
+        // Auto-uppercase on input
+        txidInput.addEventListener('input', function() {
+            this.value = this.value.toUpperCase();
+        });
+
+        // Select all text when focused
+        txidInput.addEventListener('focus', function() {
+            this.select();
+        });
+
+        // Auto-submit on Enter
+        txidInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                document.getElementById('txidSearchForm').submit();
+            }
+        });
+
+        // Prevent typing "ISA-" in the input
+        txidInput.addEventListener('keydown', function(e) {
+            // Get the full typed value including what would be added
+            const currentValue = this.value;
+            const newChar = e.key;
+
+            // Check if user is trying to type "ISA-" or "isa-"
+            if ((currentValue + newChar).toUpperCase().startsWith('ISA-')) {
+                e.preventDefault();
+                // Move cursor to after ISA-
+                this.value = currentValue.replace(/^ISA-?/i, '');
+                this.setSelectionRange(0, 0);
+            }
+        });
+
+        // Also check on paste
+        txidInput.addEventListener('paste', function(e) {
+            // Get pasted data
+            const pastedData = (e.clipboardData || window.clipboardData).getData('text');
+
+            // If pasted data starts with ISA-, remove it
+            if (pastedData.toUpperCase().startsWith('ISA-')) {
+                e.preventDefault();
+                const cleanData = pastedData.replace(/^ISA-?/i, '');
+                this.value = cleanData.toUpperCase();
+            }
+        });
+    }
+
+    // Highlight and scroll to matched transaction
+    const searchTxid = new URLSearchParams(window.location.search).get('txid');
+    if (searchTxid) {
+        const fullTxid = 'ISA-' + searchTxid;
+        const rows = document.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            const codeElement = row.querySelector('code');
+            if (codeElement) {
+                const txidText = codeElement.textContent.trim();
+                if (txidText === fullTxid) {
+                    // Highlight row
+                    row.classList.add('table-info');
+
+                    // Scroll to row after a short delay
+                    setTimeout(() => {
+                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }, 300);
+                }
+            }
+        });
+    }
+});
+
+// Copy Transaction ID to clipboard
+function copyToClipboard(fullTxid) {
+    navigator.clipboard.writeText(fullTxid).then(function() {
+        // Show simple alert
+        alert('Transaction ID copied: ' + fullTxid);
+    }).catch(function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy Transaction ID');
+    });
+}
+</script>
+{% endblock %}
