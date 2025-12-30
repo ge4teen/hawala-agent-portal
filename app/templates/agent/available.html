@@ -6,14 +6,6 @@
     <span class="badge bg-warning">{{ txs|length }}</span>
 </h2>
 
-<!-- DEBUG SECTION - Add this -->
-<div class="alert alert-warning">
-    <strong>DEBUG INFO:</strong><br>
-    • Transactions in list: {{ txs|length }}<br>
-    • Agent ID: {{ session.get('user_id') }}<br>
-    • Picked Count: {{ picked_count|default(0) }}
-</div>
-
 {% if txs %}
 <div class="alert alert-info">
     <i class="fas fa-info-circle"></i>
@@ -28,11 +20,8 @@
                 <th>Sender</th>
                 <th>Receiver</th>
                 <th>Amount</th>
-                <th>Created By</th>
                 <th>Status</th>
                 <th>Available</th>
-                <th>Agent ID</th>
-                <th>Picked By</th>
                 <th>Created At</th>
                 <th>Actions</th>
             </tr>
@@ -48,32 +37,20 @@
                 <td>{{ tx.sender_name }}</td>
                 <td>{{ tx.receiver_name }}</td>
                 <td class="fw-bold">ZAR {{ "%.2f"|format(tx.amount_local) }}</td>
-                <td>{{ tx.created_by_name or 'Admin' }}</td>
                 <td>
                     <span class="badge bg-{% if tx.status == 'pending' %}warning{% else %}success{% endif %}">
-                        {{ tx.status }}
+                        {{ tx.status|title }}
                     </span>
                 </td>
                 <td>
-                    <span class="badge bg-{% if tx.available_to_all == 1 %}success{% else %}secondary{% endif %}">
-                        {{ 'Yes' if tx.available_to_all == 1 else 'No' }}
+                    <span class="badge bg-{% if tx.available_to_all %}success{% else %}secondary{% endif %}">
+                        {{ 'Yes' if tx.available_to_all else 'No' }}
                     </span>
                 </td>
                 <td>
-                    <span class="badge bg-{% if tx.agent_id %}info{% else %}secondary{% endif %}">
-                        {{ tx.agent_id or 'None' }}
-                    </span>
+                    <small>{{ tx.timestamp.strftime('%Y-%m-%d %H:%M') if tx.timestamp else '' }}</small>
                 </td>
                 <td>
-                    <span class="badge bg-{% if tx.picked_by %}info{% else %}secondary{% endif %}">
-                        {{ tx.picked_by or 'None' }}
-                    </span>
-                </td>
-                <td>
-                    <small>{{ tx.timestamp|string|truncate(16, True, '') }}</small>
-                </td>
-                <td>
-                    <!-- Fixed: Use txid parameter name and proper URL -->
                     <form method="POST" action="{{ url_for('agent.pick_transaction', txid=tx.transaction_id) }}"
                           onsubmit="return confirm('Pick this transaction? It will be assigned to you.')"
                           style="display: inline;">
@@ -82,7 +59,6 @@
                         </button>
                     </form>
 
-                    <!-- Add Verify button -->
                     <a href="{{ url_for('agent.verify_transaction', txid=tx.transaction_id) }}"
                        class="btn btn-sm btn-info">
                         <i class="fas fa-check-circle"></i> Verify
@@ -99,7 +75,6 @@
     <h4 class="text-muted">No Available Transactions</h4>
     <p class="text-muted">There are currently no transactions available for pickup.</p>
 
-    <!-- DEBUG: Add link to check database -->
     <div class="mt-3">
         <a href="{{ url_for('agent.dashboard') }}" class="btn btn-secondary">
             <i class="fas fa-arrow-left"></i> Back to Dashboard

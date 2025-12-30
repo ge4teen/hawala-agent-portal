@@ -135,7 +135,7 @@ def available_transactions():
     # 2. Status is 'pending' (not completed/cancelled)
     # 3. Not assigned to any agent yet (agent_id IS NULL) - CRITICAL FIX!
     # 4. Either never picked or picked by current agent (for fairness)
-    txs = db.session.query(
+    results = db.session.query(
         Transaction,
         User.full_name.label('created_by_name')
     ).outerjoin(
@@ -151,15 +151,20 @@ def available_transactions():
     ).order_by(Transaction.timestamp.desc()).all()
 
     # DEBUG: Show what we found
-    print(f"Found {len(txs)} available transactions for agent {uid}")
-    for tx, created_by_name in txs:
+    print(f"Found {len(results)} available transactions for agent {uid}")
+
+    # Extract just Transaction objects
+    txs = []
+    for tx, created_by_name in results:
         print(f"  - {tx.transaction_id}: {tx.sender_name} → {tx.receiver_name}, "
               f"ZAR {tx.amount_local}, agent_id={tx.agent_id}, picked_by={tx.picked_by}")
+        # Add created_by_name as a property to the transaction object
+        tx.created_by_name = created_by_name
+        txs.append(tx)
+
     print("=== END DEBUG ===\n")
 
     return render_template("agent/available.html", txs=txs)
-
-
 # ---------------------------------------------------------
 # Pick Available Transaction - FIXED VERSION
 # ---------------------------------------------------------
@@ -439,7 +444,7 @@ def pending_transactions():
     uid = session.get("user_id")
 
     # Get transactions assigned to this agent that are pending
-    txs = db.session.query(
+    results = db.session.query(
         Transaction,
         User.full_name.label('created_by_name')
     ).outerjoin(
@@ -449,14 +454,18 @@ def pending_transactions():
         Transaction.status == 'pending'
     ).order_by(Transaction.timestamp.desc()).all()
 
+    # Extract Transaction objects
+    txs = []
+    for tx, created_by_name in results:
+        tx.created_by_name = created_by_name
+        txs.append(tx)
+
     return render_template("agent/pending.html", txs=txs)
-
-
 @agent_bp.route("/view/<txid>")
 @require_role("agent")
 def view_transaction(txid):
     # Get transaction with additional info
-    tx = db.session.query(
+    result = db.session.query(
         Transaction,
         User.full_name.label('agent_name'),
         User.full_name.label('created_by_name'),
@@ -474,8 +483,15 @@ def view_transaction(txid):
         Transaction.transaction_id == txid
     ).first()
 
-    if not tx:
+    if not result:
         flash("Transaction not found", "warning")
         return redirect(url_for("agent.dashboard"))
 
-    return render_template("agent/view_transaction.html", tx=tx[0] if isinstance(tx, tuple) else tx)
+    # Extract transaction and add properties
+    tx, agent_name, created_by_name, completed_by_name, branch_name = result
+    tx.agent_name = agent_name
+    tx.created_by_name = created_by_name
+    tx.completed_by_name = completed_by_name
+    tx.branch_name = branch_name
+
+    return render_template("agent/view_transaction.html", tx=tx)

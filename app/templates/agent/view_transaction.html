@@ -108,7 +108,11 @@
                         <div class="col-md-6">
                             <label class="form-label text-muted mb-1">Completed By</label>
                             <div class="fw-bold">
-                                {{ completed_by_name if completed_by_name else 'N/A' }}
+                                {% if tx.completed_by %}
+                                    User #{{ tx.completed_by }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
                             </div>
                         </div>
                     </div>
@@ -312,9 +316,7 @@
                             <div class="mb-4">
                                 <label class="form-label text-muted mb-2">Branch</label>
                                 <div class="fw-bold">
-                                    {% if tx.branch_name %}
-                                        {{ tx.branch_name }}
-                                    {% elif tx.branch_id %}
+                                    {% if tx.branch_id %}
                                         Branch ID: {{ tx.branch_id }}
                                     {% else %}
                                         <span class="text-muted">No branch specified</span>
@@ -439,17 +441,9 @@
                         <div class="mb-3">
                             <label class="form-label text-muted mb-1">Assigned Agent</label>
                             <div class="d-flex align-items-center">
-                                {% if tx.agent_name %}
-                                <div class="flex-shrink-0">
-                                    <i class="fas fa-user-circle fa-2x text-primary me-2"></i>
-                                </div>
+                                {% if tx.agent_id %}
                                 <div>
-                                    <strong>{{ tx.agent_name }}</strong>
-                                    <small class="d-block text-muted">Agent ID: {{ tx.agent_id }}</small>
-                                </div>
-                                {% elif tx.agent_id %}
-                                <div>
-                                    <i class="fas fa-user me-2"></i>
+                                    <i class="fas fa-user me-2 text-primary"></i>
                                     <strong>Agent ID: {{ tx.agent_id }}</strong>
                                 </div>
                                 {% else %}
@@ -465,7 +459,11 @@
                             <label class="form-label text-muted mb-1">Created By</label>
                             <div>
                                 <i class="fas fa-user-edit me-2"></i>
-                                {{ created_by_name if created_by_name else 'Admin' }}
+                                {% if tx.created_by %}
+                                    User #{{ tx.created_by }}
+                                {% else %}
+                                    Admin
+                                {% endif %}
                             </div>
                         </div>
 
