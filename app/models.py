@@ -1,8 +1,10 @@
+from flask_login import UserMixin
+
 from . import db
 from datetime import datetime
 
 
-class User(db.Model):
+class User(db.Model, UserMixin):  # Add UserMixin
     __tablename__ = 'users'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -16,6 +18,21 @@ class User(db.Model):
     status = db.Column(db.String(20), default='active')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Flask-Login required methods (simplified by UserMixin)
+    def get_id(self):
+        return str(self.id)
+
+    @property
+    def is_active(self):
+        return self.status == 'active'
+
+    @property
+    def is_authenticated(self):
+        return True  # Assuming if user object exists, they're authenticated
+
+    @property
+    def is_anonymous(self):
+        return False
 
 class Branch(db.Model):
     __tablename__ = 'branches'
