@@ -4,7 +4,6 @@
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold mb-1">
-
                 <i class="fas fa-coins me-2 text-warning"></i>
                 Manage Dollar Balance
             </h2>
@@ -58,7 +57,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-4">
             <div class="card border-info shadow-sm h-100">
                 <div class="card-header bg-info text-white py-3">
@@ -71,17 +70,17 @@
                     <ul class="list-unstyled mb-0">
                         <li class="mb-2">
                             <i class="fas fa-exchange-alt text-muted me-2"></i>
-                            <strong>Transactions Today:</strong> 
+                            <strong>Transactions Today:</strong>
                             <span class="float-end">{{ today_count|default(0) }}</span>
                         </li>
                         <li class="mb-2">
                             <i class="fas fa-arrow-up text-danger me-2"></i>
-                            <strong>Total Outflow:</strong> 
+                            <strong>Total Outflow:</strong>
                             <span class="float-end">${{ total_outflow|default(0)|round(2) }}</span>
                         </li>
                         <li>
                             <i class="fas fa-arrow-down text-success me-2"></i>
-                            <strong>Total Inflow:</strong> 
+                            <strong>Total Inflow:</strong>
                             <span class="float-end">${{ total_inflow|default(0)|round(2) }}</span>
                         </li>
                     </ul>
@@ -103,26 +102,26 @@
                 <div class="card-body">
                     <form method="POST" id="addForm">
                         <input type="hidden" name="action" value="add">
-                        
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">Amount to Add (USD)</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
-                                <input type="number" name="amount" class="form-control" 
+                                <input type="number" name="amount" class="form-control"
                                        step="0.01" min="0.01" required
                                        placeholder="Enter amount to add">
                             </div>
                             <small class="text-muted">Enter the USD amount to add to system balance</small>
                         </div>
-                        
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">Reason / Notes</label>
-                            <textarea name="notes" class="form-control" rows="3" 
+                            <textarea name="notes" class="form-control" rows="3"
                                       placeholder="Explain why you're adding these funds (e.g., Bank deposit, Cash collection, etc.)"
                                       required></textarea>
                             <small class="text-muted">Provide details for audit purposes</small>
                         </div>
-                        
+
                         <div class="d-grid">
                             <button type="submit" class="btn btn-success btn-lg">
                                 <i class="fas fa-check-circle me-1"></i>
@@ -133,7 +132,7 @@
                 </div>
             </div>
         </div>
-        
+
         <div class="col-md-6">
             <div class="card shadow-sm border-warning">
                 <div class="card-header bg-warning text-white py-3">
@@ -145,32 +144,32 @@
                 <div class="card-body">
                     <form method="POST" id="deductForm">
                         <input type="hidden" name="action" value="subtract">
-                        
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">Amount to Deduct (USD)</label>
                             <div class="input-group">
                                 <span class="input-group-text">$</span>
-                                <input type="number" name="amount" class="form-control" 
+                                <input type="number" name="amount" class="form-control"
                                        step="0.01" min="0.01" max="{{ balance.current_balance if balance else 0 }}"
                                        required placeholder="Enter amount to deduct">
                             </div>
                             <small class="text-muted">Maximum: ${{ "%.2f"|format(balance.current_balance) if balance else "0.00" }}</small>
                         </div>
-                        
+
                         <div class="mb-3">
                             <label class="form-label fw-bold">Reason / Notes</label>
-                            <textarea name="notes" class="form-control" rows="3" 
+                            <textarea name="notes" class="form-control" rows="3"
                                       placeholder="Explain why you're deducting these funds (e.g., Bank withdrawal, Expense, Correction, etc.)"
                                       required></textarea>
                             <small class="text-muted">Provide details for audit purposes</small>
                         </div>
-                        
+
                         <div class="alert alert-warning">
                             <i class="fas fa-exclamation-triangle me-2"></i>
-                            <strong>Warning:</strong> Deducting funds reduces the system's available USD balance. 
+                            <strong>Warning:</strong> Deducting funds reduces the system's available USD balance.
                             Ensure this is correct before proceeding.
                         </div>
-                        
+
                         <div class="d-grid">
                             <button type="submit" class="btn btn-warning btn-lg">
                                 <i class="fas fa-exclamation-triangle me-1"></i>
@@ -183,12 +182,12 @@
         </div>
     </div>
 
-    <!-- Recent Adjustments -->
+    <!-- Recent Activity Logs -->
     <div class="card shadow-sm">
         <div class="card-header bg-light py-3">
             <h5 class="mb-0">
                 <i class="fas fa-history me-2"></i>
-                Recent Manual Adjustments
+                Recent Balance Activity
             </h5>
         </div>
         <div class="card-body p-0">
@@ -198,41 +197,33 @@
                     <thead class="table-light">
                         <tr>
                             <th>Date/Time</th>
-                            <th>Type</th>
-                            <th>Description</th>
-                            <th class="text-end">Amount</th>
-                            <th class="text-end">New Balance</th>
-                            <th>Created By</th>
+                            <th>Action</th>
+                            <th>Details</th>
+                            <th>User</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for log in recent_logs %}
                         <tr>
                             <td>
-                                <div>{{ log.timestamp|format_date if log.timestamp else 'N/A' }}</div>
-                                <small class="text-muted">{{ log.timestamp|time_ago if log.timestamp else '' }}</small>
+                                <div>{{ log.created_at|format_date if log.created_at else 'N/A' }}</div>
+                                <small class="text-muted">{{ log.created_at|time_ago if log.created_at else '' }}</small>
                             </td>
                             <td>
-                                {% if log.change_type == 'manual_adjustment' %}
-                                <span class="badge bg-warning">Manual</span>
+                                {% if 'balance' in log.action|lower %}
+                                <span class="badge bg-warning">{{ log.action|replace('_', ' ')|title }}</span>
                                 {% else %}
-                                <span class="badge bg-secondary">{{ log.change_type|title }}</span>
+                                <span class="badge bg-secondary">{{ log.action|replace('_', ' ')|title }}</span>
                                 {% endif %}
                             </td>
                             <td>
-                                <div class="text-truncate" style="max-width: 250px;">
-                                    {{ log.description or 'No description' }}
+                                <div class="text-truncate" style="max-width: 250px;" title="{{ log.details }}">
+                                    {{ log.details or 'No description' }}
                                 </div>
                             </td>
-                            <td class="text-end fw-bold {% if log.change_amount > 0 %}text-success{% else %}text-danger{% endif %}">
-                                {{ '+' if log.change_amount > 0 else '' }}${{ "%.2f"|format(log.change_amount) }}
-                            </td>
-                            <td class="text-end fw-bold">
-                                ${{ "%.2f"|format(log.new_balance) if log.new_balance else '0.00' }}
-                            </td>
                             <td>
-                                {% if log.created_by %}
-                                <small>User #{{ log.created_by }}</small>
+                                {% if log.user_id %}
+                                <small>User #{{ log.user_id }}</small>
                                 {% else %}
                                 <small class="text-muted">System</small>
                                 {% endif %}
@@ -245,14 +236,14 @@
             {% else %}
             <div class="text-center py-5 text-muted">
                 <i class="fas fa-inbox fa-3x mb-3"></i>
-                <p>No manual adjustments found</p>
+                <p>No recent balance activity found</p>
             </div>
             {% endif %}
         </div>
         {% if recent_logs %}
         <div class="card-footer text-end">
-            <a href="{{ url_for('admin.dollar_balance_logs') }}" class="btn btn-sm btn-outline-primary">
-                View All Balance Logs
+            <a href="{{ url_for('admin.logs') }}" class="btn btn-sm btn-outline-primary">
+                View All System Logs
             </a>
         </div>
         {% endif %}

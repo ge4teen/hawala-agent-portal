@@ -135,3 +135,21 @@ class DollarBalance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     current_balance = db.Column(db.Float, default=0.00)
     last_updated = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DollarBalanceLog(db.Model):
+    __tablename__ = 'dollar_balance_logs'
+
+    id = db.Column(db.Integer, primary_key=True)
+    transaction_id = db.Column(db.String(50), db.ForeignKey('transactions.transaction_id'))
+    change_amount = db.Column(db.Float, nullable=False)
+    previous_balance = db.Column(db.Float, nullable=False)
+    new_balance = db.Column(db.Float, nullable=False)
+    change_type = db.Column(db.String(50))  # 'manual_adjustment', 'transaction', etc.
+    description = db.Column(db.Text)
+    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    transaction = db.relationship('Transaction', backref='balance_logs')
+    user = db.relationship('User', backref='balance_logs')
