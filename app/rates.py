@@ -1,15 +1,8 @@
-# app/rates.py
 import requests
-import sqlite3
 from datetime import datetime, timedelta
 from flask import current_app
-import time
-
-
-def get_db():
-    """Get database connection"""
-    from .utils import get_db
-    return get_db()
+from .models import db, ExchangeRate, Setting
+from sqlalchemy import desc, func
 
 
 def update_usd_zar():
@@ -98,27 +91,31 @@ def update_usd_zar():
 def save_rate_to_db(rate, source):
     """Save rate to database"""
     try:
-        db = get_db()
-        cur = db.cursor()
-
         # Insert new rate
-        cur.execute("""
-            INSERT INTO exchange_rates (from_currency, to_currency, rate, source, updated_at) 
-            VALUES (?, ?, ?, ?, datetime('now'))
-        """, ("USD", "ZAR", float(rate), source))
+        exchange_rate = ExchangeRate(
+            from_currency="USD",
+            to_currency="ZAR",
+            rate=float(rate),
+            source=source,
+            updated_at=datetime.utcnow()
+        )
 
-        db.commit()
+        db.session.add(exchange_rate)
+        db.session.commit()
 
         # Keep only last 100 rates to prevent database bloat
-        cur.execute("""
-            DELETE FROM exchange_rates 
-            WHERE id NOT IN (
-                SELECT id FROM exchange_rates 
-                ORDER BY updated_at DESC 
-                LIMIT 100
+        # Get IDs of the 100 most recent rates
+        recent_ids = db.session.query(ExchangeRate.id).order_by(
+            ExchangeRate.updated_at.desc()
+        ).limit(100).subquery()
+
+        # Delete older rates (PostgreSQL-compatible syntax)
+        db.session.execute(
+            db.delete(ExchangeRate).where(
+                ExchangeRate.id.not_in(db.select(recent_ids.c.id))
             )
-        """)
-        db.commit()
+        )
+        db.session.commit()
 
         return {"ok": True, "rate": rate, "source": source}
 
@@ -129,26 +126,24 @@ def save_rate_to_db(rate, source):
 
 def should_update_rates():
     """Check if rates should be updated automatically"""
-    db = get_db()
-    cur = db.cursor()
-
     # Check auto-update setting
-    cur.execute("SELECT value FROM settings WHERE key='auto_update_rates'")
-    setting = cur.fetchone()
+    setting = Setting.query.filter_by(key='auto_update_rates').first()
 
-    if setting and setting['value'] == 'false':
+    if setting and setting.value == 'false':
         return False
 
     # Check when rates were last updated
-    cur.execute("SELECT MAX(updated_at) as last_update FROM exchange_rates")
-    result = cur.fetchone()
+    # Using func.max to get the maximum updated_at
+    last_update_result = db.session.query(
+        func.max(ExchangeRate.updated_at).label('last_update')
+    ).filter_by(from_currency='USD', to_currency='ZAR').first()
 
-    if not result or not result['last_update']:
+    if not last_update_result or not last_update_result.last_update:
         return True  # Never updated, needs update
 
-    # Parse the last update time
-    last_update = datetime.strptime(result['last_update'], '%Y-%m-%d %H:%M:%S')
-    now = datetime.now()
+    # Calculate time difference
+    last_update = last_update_result.last_update
+    now = datetime.utcnow()
 
     # Update if more than 1 hour has passed (markets update frequently)
     time_diff = now - last_update
@@ -170,13 +165,15 @@ def update_rate_if_needed(force=False):
 
 def get_latest_rate():
     """Get the latest exchange rate"""
-    db = get_db()
-    cur = db.cursor()
-    cur.execute("""
-        SELECT rate, source, updated_at 
-        FROM exchange_rates 
-        WHERE from_currency='USD' AND to_currency='ZAR' 
-        ORDER BY updated_at DESC 
-        LIMIT 1
-    """)
-    return cur.fetchone()
+    rate = ExchangeRate.query.filter_by(
+        from_currency='USD',
+        to_currency='ZAR'
+    ).order_by(ExchangeRate.updated_at.desc()).first()
+
+    if rate:
+        return {
+            'rate': rate.rate,
+            'source': rate.source,
+            'updated_at': rate.updated_at
+        }
+    return None
