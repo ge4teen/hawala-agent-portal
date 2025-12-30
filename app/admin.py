@@ -55,7 +55,6 @@ def dashboard():
 
     return render_template("admin/dashboard.html", stats=stats, charts=charts, usd_zar=usd_zar)
 
-
 # transactions list & management
 @admin_bp.route("/transactions")
 @require_role("admin")
@@ -64,19 +63,8 @@ def transactions():
     txid_suffix = request.args.get('txid', '').upper().strip()
     status = request.args.get('status', '')
 
-    # Build base query with joins
-    query = db.session.query(
-        Transaction,
-        User.full_name.label('agent_name'),
-        User.full_name.label('completed_by_name'),
-        User.full_name.label('verified_by_name')
-    ).outerjoin(
-        User, Transaction.agent_id == User.id
-    ).outerjoin(
-        User, Transaction.completed_by == User.id
-    ).outerjoin(
-        User, Transaction.verified_by == User.id
-    )
+    # Simple query - no joins
+    query = Transaction.query
 
     # Add TXID filter (exact match for suffix)
     if txid_suffix:
@@ -87,13 +75,9 @@ def transactions():
         query = query.filter(Transaction.status == status)
 
     # Always order by most recent first
-    query = query.order_by(Transaction.timestamp.desc())
-
-    results = query.all()
-    txs = [tx[0] for tx in results]  # Extract Transaction objects
+    txs = query.order_by(Transaction.timestamp.desc()).all()
 
     return render_template("admin/transactions.html", txs=txs)
-
 
 @admin_bp.route("/transactions/create", methods=["GET", "POST"])
 @require_role("admin")
