@@ -927,21 +927,30 @@ def delete_agent(agent_id):
 @require_role("admin")
 def view_transaction(txid):
     """View transaction details including who completed it"""
+
+    # Import aliased at the top of your file if not already
+    from sqlalchemy.orm import aliased
+
+    # Create unique aliases for each join to the User table
+    agent_user = aliased(User, name='agent_user')
+    completed_by_user = aliased(User, name='completed_by_user')
+    created_by_user = aliased(User, name='created_by_user')
+
     # Get transaction with all user info
     tx = db.session.query(
         Transaction,
-        User.full_name.label('agent_name'),
-        User.username.label('agent_username'),
-        User.full_name.label('completed_by_name'),
-        User.username.label('completed_by_username'),
-        User.full_name.label('created_by_name'),
+        agent_user.full_name.label('agent_name'),
+        agent_user.username.label('agent_username'),
+        completed_by_user.full_name.label('completed_by_name'),
+        completed_by_user.username.label('completed_by_username'),
+        created_by_user.full_name.label('created_by_name'),
         Branch.name.label('branch_name')
     ).outerjoin(
-        User, Transaction.agent_id == User.id
+        agent_user, Transaction.agent_id == agent_user.id
     ).outerjoin(
-        User, Transaction.completed_by == User.id
+        completed_by_user, Transaction.completed_by == completed_by_user.id
     ).outerjoin(
-        User, Transaction.created_by == User.id
+        created_by_user, Transaction.created_by == created_by_user.id
     ).outerjoin(
         Branch, Transaction.branch_id == Branch.id
     ).filter(
@@ -949,21 +958,23 @@ def view_transaction(txid):
     ).first()
 
     if not tx:
-        flash("Transaction not found", "warning")
+        flash("Transaction not found", "error")
         return redirect(url_for("admin.transactions"))
 
-    transaction_obj = tx[0] if isinstance(tx, tuple) else tx
+    # Unpack the result (tx is a tuple)
+    transaction, agent_name, agent_username, completed_by_name, completed_by_username, created_by_name, branch_name = tx
 
-    # Get completion log
-    logs = Log.query.filter(
-        and_(
-            Log.details.like(f"%{txid}%"),
-            or_(Log.action == 'completed_tx', Log.action == 'sms_sent')
-        )
-    ).order_by(Log.id.desc()).all()
-
-    return render_template("admin/view_transaction.html", tx=transaction_obj, logs=logs)
-
+    # Now you can access transaction and all the joined fields
+    return render_template(
+        "admin/transaction_detail.html",
+        transaction=transaction,
+        agent_name=agent_name,
+        agent_username=agent_username,
+        completed_by_name=completed_by_name,
+        completed_by_username=completed_by_username,
+        created_by_name=created_by_name,
+        branch_name=branch_name
+    )
 
 @admin_bp.route("/transactions/<txid>/verify", methods=["POST"])
 @require_role("admin")
