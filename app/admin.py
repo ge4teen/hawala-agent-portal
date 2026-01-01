@@ -966,7 +966,7 @@ def view_transaction(txid):
 
     # Now you can access transaction and all the joined fields
     return render_template(
-        "admin/transaction_detail.html",
+        "admin/view_transactions.html",
         transaction=transaction,
         agent_name=agent_name,
         agent_username=agent_username,
