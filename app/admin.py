@@ -934,35 +934,36 @@ def view_transaction(txid):
     agent_user = aliased(User, name='agent_user')
     completed_by_user = aliased(User, name='completed_by_user')
     created_by_user = aliased(User, name='created_by_user')
-    completer_user = aliased(User, name='completer_user')  # For tx.completer
-    verifier_user = aliased(User, name='verifier_user')  # For tx.verifier
-    picker_user = aliased(User, name='picker_user')  # For tx.picker
-    creator_user = aliased(User, name='creator_user')  # For tx.creator
+    completer_user = aliased(User, name='completer_user')
+    verifier_user = aliased(User, name='verifier_user')
+    picker_user = aliased(User, name='picker_user')
+    creator_user = aliased(User, name='creator_user')
 
-    # Query with all necessary joins
+    # Query with all necessary joins - FIXED VERSION
     query = (Transaction.query
              .outerjoin(agent_user, Transaction.agent_id == agent_user.id)
              .outerjoin(completed_by_user, Transaction.completed_by == completed_by_user.id)
              .outerjoin(created_by_user, Transaction.created_by == created_by_user.id)
-             .outerjoin(completer_user, Transaction.completed_by == completer_user.id)  # For tx.completer
-             .outerjoin(verifier_user, Transaction.verified_by == verifier_user.id)  # For tx.verifier
-             .outerjoin(picker_user, Transaction.picked_by == picker_user.id)  # For tx.picker
-             .outerjoin(creator_user, Transaction.created_by == creator_user.id)  # For tx.creator
+             .outerjoin(completer_user, Transaction.completed_by == completer_user.id)
+             .outerjoin(verifier_user, Transaction.verified_by == verifier_user.id)
+             .outerjoin(picker_user, Transaction.picked_by == picker_user.id)
+             .outerjoin(creator_user, Transaction.created_by == creator_user.id)
              .outerjoin(Branch, Transaction.branch_id == Branch.id)
              .add_columns(
+        # Basic info columns
         agent_user.full_name.label('agent_name'),
         agent_user.username.label('agent_username'),
         completed_by_user.full_name.label('completed_by_name'),
         completed_by_user.username.label('completed_by_username'),
         created_by_user.full_name.label('created_by_name'),
         Branch.name.label('branch_name'),
-        # Add relationship fields for template
-        agent_user.label('agent'),  # For tx.agent
-        completer_user.label('completer'),  # For tx.completer
-        verifier_user.label('verifier'),  # For tx.verifier
-        picker_user.label('picker'),  # For tx.picker
-        creator_user.label('creator'),  # For tx.creator
-        Branch.label('branch')  # For tx.branch
+        # Add the actual relationship objects
+        agent_user,  # This gives you the User object, not a label
+        completer_user,  # Same here
+        verifier_user,  # Same here
+        picker_user,  # Same here
+        creator_user,  # Same here
+        Branch  # This gives you the Branch object
     )
              .filter(Transaction.transaction_id == txid))
 
@@ -972,40 +973,37 @@ def view_transaction(txid):
         flash("Transaction not found", "error")
         return redirect(url_for("admin.transactions"))
 
-    # Unpack the result - IMPORTANT: This matches the .add_columns() order
+    # Unpack the result - FIXED: Now includes actual objects, not labels
     (transaction, agent_name, agent_username,
      completed_by_name, completed_by_username,
      created_by_name, branch_name,
-     agent, completer, verifier, picker, creator, branch) = result
+     agent_obj, completer_obj, verifier_obj, picker_obj, creator_obj, branch_obj) = result
 
-    # DEBUG: Log what we found
-    print(f"🔍 Transaction found: {transaction.transaction_id}")
-    print(f"   Agent: {agent_name} ({agent_username})")
-    print(f"   Completed by: {completed_by_name} ({completed_by_username})")
-    print(f"   Created by: {created_by_name}")
-    print(f"   Branch: {branch_name}")
+    # DEBUG
+    print(f"✅ Transaction loaded: {transaction.transaction_id}")
+    print(f"   Agent object: {agent_obj}")
+    print(f"   Branch object: {branch_obj}")
 
-    # Get activity logs if needed
-    logs = []  # You'll need to fetch logs from your ActivityLog model
-    # Example: logs = ActivityLog.query.filter_by(transaction_id=transaction.id).all()
+    # Get activity logs
+    logs = []  # Replace with: ActivityLog.query.filter_by(transaction_id=transaction.id).all()
 
-    # Pass ALL variables that the template expects
+    # Pass to template - your template uses 'tx' for the transaction
     return render_template(
         "admin/view_transactions.html",
-        tx=transaction,  # This is the main transaction object
+        tx=transaction,  # Main transaction object
         agent_name=agent_name,
         agent_username=agent_username,
         completed_by_name=completed_by_name,
         completed_by_username=completed_by_username,
         created_by_name=created_by_name,
         branch_name=branch_name,
-        # Add relationship objects for template
-        agent=agent,
-        completer=completer,
-        verifier=verifier,
-        picker=picker,
-        creator=creator,
-        branch=branch,
+        # Pass the actual objects for template relationships
+        agent=agent_obj,
+        completer=completer_obj,
+        verifier=verifier_obj,
+        picker=picker_obj,
+        creator=creator_obj,
+        branch=branch_obj,
         logs=logs
     )
 @admin_bp.route("/transactions/<txid>/verify", methods=["POST"])
