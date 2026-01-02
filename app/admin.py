@@ -676,7 +676,68 @@ from sqlalchemy import cast, Date, func
 from sqlalchemy.orm import aliased
 from sqlalchemy import text
 
+@admin_bp.route("/reports/daily")
+@require_role("admin")
+def reports_daily():
+    # Get selected date from query parameter
+    selected_date = request.args.get('date')
 
+    if selected_date:
+        # Today's summary for selected date
+        today_result = db.session.query(
+            func.count().label('count'),
+            func.coalesce(func.sum(Transaction.amount_local), 0).label('total')
+        ).filter(
+            cast(Transaction.timestamp, Date) == selected_date
+        ).first()
+
+        # Get transactions for selected date
+        transactions = db.session.query(
+            Transaction,
+            User.full_name.label('agent_name')
+        ).outerjoin(
+            User, Transaction.agent_id == User.id
+        ).filter(
+            cast(Transaction.timestamp, Date) == selected_date
+        ).order_by(Transaction.timestamp.desc()).all()
+    else:
+        # Today's summary
+        today = datetime.utcnow().date()
+        today_result = db.session.query(
+            func.count().label('count'),
+            func.coalesce(func.sum(Transaction.amount_local), 0).label('total')
+        ).filter(
+            cast(Transaction.timestamp, Date) == today
+        ).first()
+
+        # Get transactions for today
+        transactions = db.session.query(
+            Transaction,
+            User.full_name.label('agent_name')
+        ).outerjoin(
+            User, Transaction.agent_id == User.id
+        ).filter(
+            cast(Transaction.timestamp, Date) == today
+        ).order_by(Transaction.timestamp.desc()).all()
+
+    # Get last 7 days summary for chart
+    seven_days_ago = datetime.utcnow().date() - timedelta(days=7)
+    daily_summary = db.session.query(
+        cast(Transaction.timestamp, Date).label('day'),
+        func.count().label('count'),
+        func.coalesce(func.sum(Transaction.amount_local), 0).label('total')
+    ).filter(
+        cast(Transaction.timestamp, Date) >= seven_days_ago
+    ).group_by(
+        cast(Transaction.timestamp, Date)
+    ).order_by(text('day DESC')).all()
+
+    return render_template("admin/reports_daily.html",
+                           today=today_result,
+                           rows=transactions,
+                           daily_summary=daily_summary,
+                           selected_date=selected_date,
+                           now=datetime.utcnow())  # ✅ Add this
 
 @admin_bp.route("/reports/monthly")
 @require_role("admin")
