@@ -675,6 +675,10 @@ from datetime import datetime, timedelta
 from sqlalchemy import cast, Date, func
 from sqlalchemy.orm import aliased
 from sqlalchemy import text
+from datetime import datetime, timedelta
+from sqlalchemy import cast, Date, func, text
+from sqlalchemy.orm import aliased
+
 
 @admin_bp.route("/reports/daily")
 @require_role("admin")
@@ -682,49 +686,61 @@ def reports_daily():
     # Get selected date from query parameter
     selected_date = request.args.get('date')
 
+    # Parse date if provided
     if selected_date:
-        # Today's summary for selected date
-        today_result = db.session.query(
-            func.count().label('count'),
-            func.coalesce(func.sum(Transaction.amount_local), 0).label('total')
-        ).filter(
-            cast(Transaction.timestamp, Date) == selected_date
-        ).first()
-
-        # Get transactions for selected date
-        transactions = db.session.query(
-            Transaction,
-            User.full_name.label('agent_name')
-        ).outerjoin(
-            User, Transaction.agent_id == User.id
-        ).filter(
-            cast(Transaction.timestamp, Date) == selected_date
-        ).order_by(Transaction.timestamp.desc()).all()
+        try:
+            filter_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
+        except ValueError:
+            filter_date = datetime.utcnow().date()
     else:
-        # Today's summary
-        today = datetime.utcnow().date()
-        today_result = db.session.query(
-            func.count().label('count'),
-            func.coalesce(func.sum(Transaction.amount_local), 0).label('total')
-        ).filter(
-            cast(Transaction.timestamp, Date) == today
-        ).first()
+        filter_date = datetime.utcnow().date()
 
-        # Get transactions for today
-        transactions = db.session.query(
-            Transaction,
-            User.full_name.label('agent_name')
-        ).outerjoin(
-            User, Transaction.agent_id == User.id
-        ).filter(
-            cast(Transaction.timestamp, Date) == today
-        ).order_by(Transaction.timestamp.desc()).all()
+    # Today's summary for selected date
+    today_result = db.session.query(
+        func.count(Transaction.id).label('count'),
+        func.coalesce(func.sum(Transaction.amount_local), 0).label('total')
+    ).filter(
+        cast(Transaction.timestamp, Date) == filter_date
+    ).first()
+
+    # Convert result to dictionary for template
+    today_dict = {
+        'count': today_result.count if today_result else 0,
+        'total': float(today_result.total) if today_result and today_result.total else 0.0
+    }
+
+    # Get transactions for selected date
+    transactions = db.session.query(
+        Transaction,
+        User.full_name.label('agent_name')
+    ).outerjoin(
+        User, Transaction.agent_id == User.id
+    ).filter(
+        cast(Transaction.timestamp, Date) == filter_date
+    ).order_by(Transaction.timestamp.desc()).all()
+
+    # Convert transactions to list of dictionaries for template
+    rows_list = []
+    for tx, agent_name in transactions:
+        tx_dict = {
+            'transaction_id': tx.transaction_id,
+            'sender_name': tx.sender_name,
+            'sender_phone': tx.sender_phone or '',
+            'receiver_name': tx.receiver_name,
+            'receiver_phone': tx.receiver_phone or '',
+            'amount_local': float(tx.amount_local) if tx.amount_local else 0.0,
+            'currency_code': tx.currency_code or 'ZAR',
+            'status': tx.status or 'pending',
+            'timestamp': tx.timestamp,
+            'agent_name': agent_name or 'Unassigned'
+        }
+        rows_list.append(tx_dict)
 
     # Get last 7 days summary for chart
     seven_days_ago = datetime.utcnow().date() - timedelta(days=7)
     daily_summary = db.session.query(
         cast(Transaction.timestamp, Date).label('day'),
-        func.count().label('count'),
+        func.count(Transaction.id).label('count'),
         func.coalesce(func.sum(Transaction.amount_local), 0).label('total')
     ).filter(
         cast(Transaction.timestamp, Date) >= seven_days_ago
@@ -732,12 +748,22 @@ def reports_daily():
         cast(Transaction.timestamp, Date)
     ).order_by(text('day DESC')).all()
 
+    # Convert daily_summary to list of dictionaries
+    daily_summary_list = []
+    for day in daily_summary:
+        daily_summary_list.append({
+            'day': day.day,
+            'count': day.count,
+            'total': float(day.total) if day.total else 0.0
+        })
+
     return render_template("admin/reports_daily.html",
-                           today=today_result,
-                           rows=transactions,
-                           daily_summary=daily_summary,
-                           selected_date=selected_date,
-                           now=datetime.utcnow())  # ✅ Add this
+                           today=today_dict,
+                           rows=rows_list,
+                           daily_summary=daily_summary_list,
+                           selected_date=selected_date if selected_date else filter_date.strftime('%Y-%m-%d'),
+                           now=datetime.utcnow())
+
 
 @admin_bp.route("/reports/monthly")
 @require_role("admin")

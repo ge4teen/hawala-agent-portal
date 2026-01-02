@@ -8,7 +8,7 @@
                 {% if selected_date %}
                     {{ selected_date }}
                 {% else %}
-                    Today: {{ now.strftime('%Y-%m-%d') if now else '' }}
+                    Today: {{ now.strftime('%Y-%m-%d') }}
                 {% endif %}
             </p>
         </div>
@@ -28,8 +28,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="card-title text-muted">Today's Transactions</h6>
-                            <h3 class="mb-0">{{ today['count'] if today else 0 }}</h3>
+                            <h6 class="card-title text-muted">Transactions</h6>
+                            <h3 class="mb-0">{{ today['count'] }}</h3>
                         </div>
                         <div class="text-primary">
                             <i class="fas fa-exchange-alt fa-2x"></i>
@@ -43,8 +43,8 @@
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
-                            <h6 class="card-title text-muted">Today's Volume</h6>
-                            <h3 class="mb-0">ZAR {{ "%.2f"|format(today['total']|float if today else 0) }}</h3>
+                            <h6 class="card-title text-muted">Total Volume</h6>
+                            <h3 class="mb-0">ZAR {{ "%.2f"|format(today['total']) }}</h3>
                         </div>
                         <div class="text-success">
                             <i class="fas fa-chart-line fa-2x"></i>
@@ -60,7 +60,7 @@
                         <div>
                             <h6 class="card-title text-muted">Avg. Transaction</h6>
                             <h3 class="mb-0">
-                                ZAR {{ "%.2f"|format((today['total']|float / today['count']) if today and today['count'] > 0 else 0) }}
+                                ZAR {{ "%.2f"|format((today['total'] / today['count']) if today['count'] > 0 else 0) }}
                             </h3>
                         </div>
                         <div class="text-info">
@@ -79,7 +79,7 @@
                 <div class="col-md-4">
                     <label for="date" class="form-label">Select Date</label>
                     <input type="date" class="form-control" id="date" name="date"
-                           value="{{ selected_date if selected_date else '' }}">
+                           value="{{ selected_date if selected_date else now.strftime('%Y-%m-%d') }}">
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">&nbsp;</label>
@@ -119,42 +119,44 @@
                             {% for t in rows %}
                             <tr>
                                 <td>
-                                    <span class="badge bg-light text-dark font-monospace">{{ t['transaction_id']|truncate(10, True, '...') }}</span>
+                                    <span class="badge bg-light text-dark font-monospace">{{ t.transaction_id|truncate(10, True, '...') }}</span>
                                 </td>
                                 <td>
-                                    <div>{{ t['sender_name'] }}</div>
-                                    <small class="text-muted">{{ t['sender_phone'] }}</small>
+                                    <div>{{ t.sender_name }}</div>
+                                    {% if t.sender_phone %}
+                                    <small class="text-muted">{{ t.sender_phone }}</small>
+                                    {% endif %}
                                 </td>
-                                <td>{{ t['receiver_name'] }}</td>
-                                <td class="fw-bold">ZAR {{ "%.2f"|format(t['amount_local']|float) }}</td>
+                                <td>{{ t.receiver_name }}</td>
+                                <td class="fw-bold">ZAR {{ "%.2f"|format(t.amount_local) }}</td>
                                 <td>
-                                    <span class="badge bg-info">{{ t['currency_code'] }}</span>
+                                    <span class="badge bg-info">{{ t.currency_code }}</span>
                                 </td>
                                 <td>
-                                    {% if t['status'] == 'pending' %}
-                                        <span class="badge badge-warning">Pending</span>
-                                    {% elif t['status'] == 'completed' %}
-                                        <span class="badge badge-success">Completed</span>
-                                    {% elif t['status'] == 'cancelled' %}
-                                        <span class="badge badge-danger">Cancelled</span>
+                                    {% if t.status == 'pending' %}
+                                        <span class="badge bg-warning">Pending</span>
+                                    {% elif t.status == 'completed' %}
+                                        <span class="badge bg-success">Completed</span>
+                                    {% elif t.status == 'cancelled' %}
+                                        <span class="badge bg-danger">Cancelled</span>
                                     {% else %}
-                                        <span class="badge badge-secondary">{{ t['status']|title }}</span>
+                                        <span class="badge bg-secondary">{{ t.status|title }}</span>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if t['agent_name'] %}
-                                        {{ t['agent_name'] }}
+                                    {{ t.agent_name }}
+                                </td>
+                                <td>
+                                    {% if t.timestamp %}
+                                    <small>{{ t.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
                                     {% else %}
-                                        <span class="text-muted">Unassigned</span>
+                                    <small class="text-muted">N/A</small>
                                     {% endif %}
                                 </td>
                                 <td>
-                                    <small>{{ t['timestamp']|string|truncate(16, True, '') }}</small>
-                                </td>
-                                <td>
-                                    <a href="{{ url_for('admin.edit_transaction', txid=t['transaction_id']) }}"
+                                    <a href="{{ url_for('admin.view_transaction', txid=t.transaction_id) }}"
                                        class="btn btn-sm btn-outline-primary">
-                                        <i class="fas fa-edit"></i>
+                                        <i class="fas fa-eye"></i>
                                     </a>
                                 </td>
                             </tr>
@@ -176,7 +178,7 @@
         {% if rows %}
         <div class="card-footer d-flex justify-content-between align-items-center">
             <div class="text-muted">
-                Total: ZAR {{ "%.2f"|format(rows|sum(attribute='amount_local')|float) }}
+                Total: ZAR {{ "%.2f"|format(rows|map(attribute='amount_local')|sum) }}
             </div>
             <div>
                 <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
@@ -210,10 +212,10 @@
                     <tbody>
                         {% for day in daily_summary %}
                         <tr>
-                            <td>{{ day['day'] }}</td>
-                            <td>{{ day['count'] }}</td>
-                            <td>ZAR {{ "%.2f"|format(day['total']|float) }}</td>
-                            <td>ZAR {{ "%.2f"|format((day['total']|float / day['count']) if day['count'] > 0 else 0) }}</td>
+                            <td>{{ day.day }}</td>
+                            <td>{{ day.count }}</td>
+                            <td>ZAR {{ "%.2f"|format(day.total) }}</td>
+                            <td>ZAR {{ "%.2f"|format((day.total / day.count) if day.count > 0 else 0) }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -254,7 +256,7 @@ function exportToCSV() {
     {% if selected_date %}
         filename += '{{ selected_date }}';
     {% else %}
-        filename += 'today';
+        filename += '{{ now.strftime("%Y-%m-%d") }}';
     {% endif %}
     filename += '.csv';
     a.download = filename;
