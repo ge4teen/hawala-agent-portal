@@ -79,6 +79,10 @@ def transactions():
 
     return render_template("admin/transactions.html", txs=txs)
 
+
+from aws_sns import sns_client  # ADD THIS IMPORT
+
+
 @admin_bp.route("/transactions/create", methods=["GET", "POST"])
 @require_role("admin")
 def create_transaction():
@@ -138,6 +142,10 @@ def create_transaction():
 
             # Generate unique transaction ID
             txid = generate_unique_txid()
+
+            # Variables for notification
+            agent_display = None
+            transaction_created = False
 
             try:
                 # First, check if we have enough balance (only if subtracting)
@@ -202,6 +210,32 @@ def create_transaction():
                     print(
                         f"DEBUG: Dollar balance updated: ${current_balance:.2f} → ${new_balance:.2f} (-${amount_foreign:.2f})")
 
+                    # ✅ NEW: Send balance update notification
+                    if current_balance != new_balance:
+                        try:
+                            # Determine if balance is low
+                            balance_threshold = 1000  # Low balance threshold
+
+                            if new_balance < balance_threshold:
+                                # Create a simple balance object for notification
+                                class BalanceInfo:
+                                    current_balance = new_balance
+
+                                balance_info = BalanceInfo()
+
+                                # Send low balance alert
+                                balance_notification_id = sns_client.send_transaction_notification(
+                                    transaction=balance_info,
+                                    action='low_balance',
+                                    agent_id=None
+                                )
+
+                                if balance_notification_id:
+                                    print(f"✅ Low balance alert sent: {balance_notification_id}")
+
+                        except Exception as balance_notify_error:
+                            print(f"⚠️ Balance notification failed: {balance_notify_error}")
+
                 except Exception as balance_error:
                     # Don't rollback the transaction, just log the balance update error
                     print(f"WARNING: Could not update dollar balance: {balance_error}")
@@ -215,6 +249,51 @@ def create_transaction():
 
                 db.session.commit()
 
+                # ✅ NEW: Send SNS Notification after successful transaction creation
+                try:
+                    # Get agent name for notification
+                    if agent_id:
+                        agent = User.query.get(agent_id)
+                        agent_display = agent.full_name if agent else f"ID:{agent_id}"
+                    else:
+                        agent_display = "Unassigned"
+
+                    # Determine notification action type
+                    if available_to_all:
+                        action_type = 'created_available'  # Available to all agents
+                    else:
+                        action_type = 'created_assigned'  # Assigned to specific agent
+
+                    # Send SNS notification
+                    notification_id = sns_client.send_transaction_notification(
+                        transaction=tx,
+                        action=action_type,
+                        agent_id=agent_id
+                    )
+
+                    if notification_id:
+                        print(f"✅ SNS notification sent: {notification_id}")
+
+                        # Log the notification
+                        log = Log(
+                            user_id=session.get("user_id"),
+                            action="sns_notification_sent",
+                            details=f"Transaction {txid} created - Notification ID: {notification_id}"
+                        )
+                        db.session.add(log)
+                        db.session.commit()
+
+                except Exception as notification_error:
+                    # Don't fail the transaction if notification fails
+                    print(f"⚠️ Failed to send SNS notification: {notification_error}")
+                    log = Log(
+                        user_id=session.get("user_id"),
+                        action="sns_notification_error",
+                        details=f"Failed to send notification for {txid}: {str(notification_error)[:200]}"
+                    )
+                    db.session.add(log)
+                    db.session.commit()
+
             except Exception as e:
                 db.session.rollback()
                 flash(f"Error creating transaction: {str(e)}", "danger")
@@ -222,12 +301,13 @@ def create_transaction():
 
             # SMS notification if receiver phone provided
             if receiver_phone and transaction_created:
-                # Get agent name for SMS
-                if agent_id:
-                    agent = User.query.get(agent_id)
-                    agent_display = agent.full_name if agent else f"ID:{agent_id}"
-                else:
-                    agent_display = "Unassigned"
+                # Get agent name for SMS (if not already set)
+                if not agent_display:
+                    if agent_id:
+                        agent = User.query.get(agent_id)
+                        agent_display = agent.full_name if agent else f"ID:{agent_id}"
+                    else:
+                        agent_display = "Unassigned"
 
                 # Build and send SMS
                 msg = build_sms_template(
@@ -252,6 +332,19 @@ def create_transaction():
                     )
                     db.session.add(log)
                     db.session.commit()
+
+                    # ✅ Optional: Send SMS sent notification to SNS
+                    try:
+                        sms_notification_id = sns_client.send_transaction_notification(
+                            transaction=tx,
+                            action='sms_sent',
+                            agent_id=agent_id
+                        )
+                        if sms_notification_id:
+                            print(f"✅ SMS sent notification: {sms_notification_id}")
+                    except Exception as sms_notify_error:
+                        print(f"⚠️ SMS notification failed: {sms_notify_error}")
+
                 except Exception as e:
                     # Log error but don't fail transaction
                     log = Log(
@@ -282,7 +375,7 @@ def create_transaction():
             • Amount: ZAR {amount_local:.2f} (USD {amount_foreign:.2f})
             • Payment Method: {payment_method}
             • Status: {status}
-            • Agent: {agent_display if 'agent_display' in locals() else 'Unassigned'}
+            • Agent: {agent_display if agent_display else 'Unassigned'}
 
             💰 Quote Summary:
             • Base Amount: ZAR {amount_local:.2f}
@@ -311,7 +404,6 @@ def create_transaction():
                            agents=agents,
                            branches=branches,
                            currencies=currencies)
-
 
 @admin_bp.route("/transactions/<txid>/edit", methods=["GET", "POST"])
 @require_role("admin")
