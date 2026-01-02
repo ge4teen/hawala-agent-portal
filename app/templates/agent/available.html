@@ -58,11 +58,6 @@
                             <i class="fas fa-hand-paper"></i> Pick
                         </button>
                     </form>
-
-                    <a href="{{ url_for('agent.verify_transaction', txid=tx.transaction_id) }}"
-                       class="btn btn-sm btn-info">
-                        <i class="fas fa-check-circle"></i> Verify
-                    </a>
                 </td>
             </tr>
             {% endfor %}

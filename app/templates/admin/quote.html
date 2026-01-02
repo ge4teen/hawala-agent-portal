@@ -111,9 +111,11 @@
                 {% endif %}
             </div>
 
+            <!-- FIXED: Calculate USD equivalent from BASE AMOUNT only (not subtotal) -->
+            {% set usd_equivalent = breakdown.amount_local / breakdown.rate if breakdown.rate > 0 else 0 %}
             <div class="text-center">
-                <h3 class="text-success">USD Equivalent: ${{ "%.2f"|format(breakdown.amount_foreign) }}</h3>
-                <small class="text-muted">Based on current exchange rate</small>
+                <h3 class="text-success">USD Equivalent: ${{ "%.2f"|format(usd_equivalent) }}</h3>
+                <small class="text-muted">Based on base amount of ZAR {{ "%.2f"|format(breakdown.amount_local) }}</small>
             </div>
         </div>
     </div>
@@ -123,7 +125,8 @@
         <input type="hidden" name="confirmed" value="true">
         <input type="hidden" name="action" value="create">
         <input type="hidden" name="exchange_rate" value="{{ breakdown.rate }}">
-        <input type="hidden" name="amount_usd" value="{{ "%.2f"|format(breakdown.amount_foreign) }}">
+        <!-- FIXED: Store the USD equivalent calculated from BASE AMOUNT -->
+        <input type="hidden" name="amount_usd" value="{{ "%.2f"|format(usd_equivalent) }}">
         <input type="hidden" name="exchange_rate_source" value="{{ breakdown.source }}">
 
         {% for key, value in form.items() %}
@@ -140,9 +143,9 @@
             <div>
                 <h5 class="alert-heading mb-1">Important Information</h5>
                 <p class="mb-0">
-                    This quote is valid for 15 minutes. The USD amount is calculated using the
+                    This quote is valid for 15 minutes. The USD amount (${{ "%.2f"|format(usd_equivalent) }}) is calculated using the
                     {% if breakdown.source == 'Manual' %}manually set{% else %}current{% endif %}
-                    exchange rate of {{ breakdown.rate }} ZAR/USD.
+                    exchange rate of {{ breakdown.rate }} ZAR/USD applied to the base amount of ZAR {{ "%.2f"|format(breakdown.amount_local) }}.
                 </p>
             </div>
         </div>
@@ -160,53 +163,6 @@
     </div>
     {% endif %}
 </div>
-
-<script>
-// When this quote page loads in modal, it's ready to be accepted
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Quote page loaded successfully');
-});
-
-
-// Check if this is being loaded in a modal
-if (window.parent !== window) {
-    // We're in a modal/iframe, listen for accept button
-    document.addEventListener('click', function(e) {
-        if (e.target.id === 'acceptQuoteBtn' || e.target.closest('#acceptQuoteBtn')) {
-            // Notify parent window
-            if (window.parent) {
-                window.parent.postMessage({
-                    type: 'quoteAccepted',
-                    data: {
-                        exchange_rate: document.querySelector('input[name="exchange_rate"]')?.value,
-                        amount_usd: document.querySelector('input[name="amount_usd"]')?.value
-                    }
-                }, '*');
-            }
-        }
-    });
-}
-
-// Also add direct accept functionality
-const acceptQuote = function() {
-    // Find all hidden fields and ensure they're preserved
-    const hiddenFields = document.querySelectorAll('input[type="hidden"]');
-    hiddenFields.forEach(field => {
-        if (field.name && field.value) {
-            console.log(`Preserving: ${field.name} = ${field.value}`);
-        }
-    });
-
-    // Dispatch event for parent window
-    const event = new Event('quoteAccepted');
-    window.dispatchEvent(event);
-
-    return true;
-};
-
-// Expose function globally
-window.acceptQuote = acceptQuote;
-</script>
 
 <style>
 .currency-flag {
@@ -235,7 +191,7 @@ window.acceptQuote = acceptQuote;
 }
 </style>
 
-!-- Add this script at the end of quote.html -->
+<!-- Add this script at the end of quote.html -->
 <script>
 // Check if this is being loaded in a modal
 if (window.parent !== window) {
