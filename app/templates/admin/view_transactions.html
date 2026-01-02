@@ -149,8 +149,17 @@
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-user-check fa-lg text-success me-3"></i>
                                     <div>
-                                        {% if tx.completer %}
-                                            <strong>{{ tx.completer.full_name if tx.completer.full_name else tx.completer.username }}</strong>
+                                        {% if tx.completed_by %}
+                                            {% if tx.completer %}
+                                                <!-- Use the completer relationship if it exists -->
+                                                <strong>{{ tx.completer.full_name if tx.completer.full_name else tx.completer.username }}</strong>
+                                            {% elif tx.agent_id == tx.completed_by and tx.agent %}
+                                                <!-- If completed by the assigned agent -->
+                                                <strong>{{ tx.agent.full_name if tx.agent.full_name else tx.agent.username }}</strong>
+                                            {% else %}
+                                                <!-- Fallback to showing the ID -->
+                                                <strong>User #{{ tx.completed_by }}</strong>
+                                            {% endif %}
                                         {% else %}
                                             <strong>Unknown</strong>
                                         {% endif %}
@@ -178,12 +187,23 @@
                             <th>Verified:</th>
                             <td>
                                 {% if tx.verified_by %}
-                                    <span class="badge bg-success">Yes</span>
-                                    {% if tx.verifier %}
-                                        by {{ tx.verifier.full_name if tx.verifier.full_name else tx.verifier.username }}
-                                    {% else %}
-                                        by Admin
-                                    {% endif %}
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-check-double fa-lg text-success me-3"></i>
+                                        <div>
+                                            <span class="badge bg-success">Yes</span>
+                                            {% if tx.verifier %}
+                                                by {{ tx.verifier.full_name if tx.verifier.full_name else tx.verifier.username }}
+                                            {% else %}
+                                                by Admin
+                                            {% endif %}
+                                            <br>
+                                            <small class="text-muted">
+                                                {% if tx.verified_at %}
+                                                    at {{ tx.verified_at|format_date }}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    </div>
                                 {% else %}
                                     <span class="badge bg-warning">Not Verified</span>
                                 {% endif %}
@@ -201,8 +221,15 @@
                             <th>Picked By:</th>
                             <td>
                                 {% if tx.picker %}
-                                    {{ tx.picker.full_name if tx.picker.full_name else tx.picker.username }}
-                                    at {{ tx.picked_at|format_date if tx.picked_at else 'Unknown' }}
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-hand-paper fa-lg text-primary me-3"></i>
+                                        <div>
+                                            <strong>{{ tx.picker.full_name if tx.picker.full_name else tx.picker.username }}</strong>
+                                            {% if tx.picked_at %}
+                                                <br><small class="text-muted">at {{ tx.picked_at|format_date }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 {% else %}
                                     Agent #{{ tx.picked_by }}
                                 {% endif %}
