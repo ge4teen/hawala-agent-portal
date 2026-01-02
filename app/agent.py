@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, session, redirect, url_fo
 from .utils import require_role
 from .sms import send_sms
 from datetime import datetime
-from .models import db, Transaction, User, Branch, Log, Notification, Currency
+from .models import db, Transaction, User, Branch, Log, Notification, Currency, ExchangeRate
 from sqlalchemy import func, case, or_, and_
 from decimal import Decimal
 
@@ -240,25 +240,82 @@ def create_transaction():
         currency = request.form["currency_code"]
         agent_id = session.get("user_id")
 
+        # Get additional fields if present
+        sender_phone = request.form.get("sender_phone", "")
+        receiver_phone = request.form.get("receiver_phone", "")
+        payment_method = request.form.get("payment_method", "cash")
+        notes = request.form.get("notes", "")
+
         txid = f"TX-{int(datetime.utcnow().timestamp())}"
 
+        # ✅ CRITICAL FIX: Calculate amount_foreign based on currency
+        if currency.upper() == 'USD':
+            # Get latest exchange rate USD -> ZAR
+            rate_obj = ExchangeRate.query.filter_by(
+                from_currency='USD',
+                to_currency='ZAR'
+            ).order_by(ExchangeRate.updated_at.desc()).first()
+
+            if rate_obj and rate_obj.rate > 0:
+                rate = rate_obj.rate
+                amount_foreign = amount  # Amount in USD (foreign)
+                amount_local = amount * rate  # Convert to ZAR (local)
+            else:
+                # Fallback rate
+                rate = 18.5
+                amount_foreign = amount  # Amount in USD
+                amount_local = amount * rate  # Convert to ZAR
+        else:
+            # For ZAR transactions
+            amount_local = amount  # Amount in ZAR (local)
+
+            # Get latest exchange rate ZAR -> USD (inverse)
+            rate_obj = ExchangeRate.query.filter_by(
+                from_currency='USD',
+                to_currency='ZAR'
+            ).order_by(ExchangeRate.updated_at.desc()).first()
+
+            if rate_obj and rate_obj.rate > 0:
+                rate = rate_obj.rate
+                amount_foreign = amount / rate  # Convert to USD
+            else:
+                rate = 18.5
+                amount_foreign = amount / rate  # Convert to USD
+
+        # ✅ FIXED: Now amount_foreign has a value
         tx = Transaction(
             transaction_id=txid,
             sender_name=sender,
+            sender_phone=sender_phone or None,
             receiver_name=receiver,
-            amount_local=amount,
+            receiver_phone=receiver_phone or None,
+            amount_local=amount_local,
+            amount_foreign=amount_foreign,  # ✅ Now calculated, not None
             currency_code=currency,
             status='pending',
+            created_by=agent_id,
             agent_id=agent_id,
+            payment_method=payment_method,
+            notes=notes or None,
             timestamp=datetime.utcnow()
         )
 
         db.session.add(tx)
+
+        # Log the creation
+        log = Log(
+            user_id=agent_id,
+            action="agent_created_transaction",
+            details=f"Created {txid}: {sender} → {receiver}, ZAR {amount_local:.2f}"
+        )
+        db.session.add(log)
+
         db.session.commit()
 
-        flash("Transaction created!", "success")
+        flash(f"Transaction {txid} created successfully!", "success")
         return redirect(url_for("agent.pending_transactions"))
 
+    # GET request
     currencies = Currency.query.all()
     return render_template("agent/create.html", currencies=currencies)
 
