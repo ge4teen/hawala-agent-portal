@@ -57,8 +57,12 @@
                             <th>Created:</th>
                             <td>
                                 {{ tx.timestamp|format_date if tx.timestamp else 'Unknown' }}
-                                {% if tx.created_by and tx.creator %}
-                                    by {{ tx.creator.full_name }}
+                                {% if created_by_name %}
+                                    by {{ created_by_name }}
+                                {% elif creator and creator.full_name %}
+                                    by {{ creator.full_name }}
+                                {% elif creator and creator.username %}
+                                    by {{ creator.username }}
                                 {% else %}
                                     by Admin
                                 {% endif %}
@@ -129,10 +133,15 @@
                         <tr>
                             <th>Assigned Agent:</th>
                             <td>
-                                {% if tx.agent %}
-                                    {{ tx.agent.full_name if tx.agent.full_name else tx.agent.username }}
-                                    {% if tx.agent.phone %}
-                                        <br><small class="text-muted">{{ tx.agent.phone }}</small>
+                                {% if agent %}
+                                    {{ agent.full_name if agent.full_name else agent.username }}
+                                    {% if agent.phone %}
+                                        <br><small class="text-muted">{{ agent.phone }}</small>
+                                    {% endif %}
+                                {% elif agent_name %}
+                                    {{ agent_name }}
+                                    {% if agent_username %}
+                                        <br><small class="text-muted">({{ agent_username }})</small>
                                     {% endif %}
                                 {% elif tx.available_to_all %}
                                     <span class="badge bg-warning">Available to All Agents</span>
@@ -149,17 +158,15 @@
                                 <div class="d-flex align-items-center">
                                     <i class="fas fa-user-check fa-lg text-success me-3"></i>
                                     <div>
-                                        {% if tx.completed_by %}
-                                            {% if tx.completer %}
-                                                <!-- Use the completer relationship if it exists -->
-                                                <strong>{{ tx.completer.full_name if tx.completer.full_name else tx.completer.username }}</strong>
-                                            {% elif tx.agent_id == tx.completed_by and tx.agent %}
-                                                <!-- If completed by the assigned agent -->
-                                                <strong>{{ tx.agent.full_name if tx.agent.full_name else tx.agent.username }}</strong>
-                                            {% else %}
-                                                <!-- Fallback to showing the ID -->
-                                                <strong>User #{{ tx.completed_by }}</strong>
+                                        {% if completer %}
+                                            <strong>{{ completer.full_name if completer.full_name else completer.username }}</strong>
+                                        {% elif completed_by_name %}
+                                            <strong>{{ completed_by_name }}</strong>
+                                            {% if completed_by_username %}
+                                                <br><small class="text-muted">({{ completed_by_username }})</small>
                                             {% endif %}
+                                        {% elif tx.completed_by %}
+                                            <strong>User ID: {{ tx.completed_by }}</strong>
                                         {% else %}
                                             <strong>Unknown</strong>
                                         {% endif %}
@@ -191,9 +198,9 @@
                                         <i class="fas fa-check-double fa-lg text-success me-3"></i>
                                         <div>
                                             <span class="badge bg-success">Yes</span>
-                                            {% if tx.verifier %}
-                                                by {{ tx.verifier.full_name if tx.verifier.full_name else tx.verifier.username }}
-                                            {% else %}
+                                            {% if verifier %}
+                                                by {{ verifier.full_name if verifier.full_name else verifier.username }}
+                                            {% elif tx.verified_by %}
                                                 by Admin
                                             {% endif %}
                                             <br>
@@ -213,25 +220,33 @@
 
                         <tr>
                             <th>Branch:</th>
-                            <td>{{ tx.branch.name if tx.branch else 'Not specified' }}</td>
+                            <td>{{ branch.name if branch else branch_name|default('Not specified') }}</td>
                         </tr>
 
                         {% if tx.picked_by %}
                         <tr>
                             <th>Picked By:</th>
                             <td>
-                                {% if tx.picker %}
+                                {% if picker %}
                                     <div class="d-flex align-items-center">
                                         <i class="fas fa-hand-paper fa-lg text-primary me-3"></i>
                                         <div>
-                                            <strong>{{ tx.picker.full_name if tx.picker.full_name else tx.picker.username }}</strong>
+                                            <strong>{{ picker.full_name if picker.full_name else picker.username }}</strong>
                                             {% if tx.picked_at %}
                                                 <br><small class="text-muted">at {{ tx.picked_at|format_date }}</small>
                                             {% endif %}
                                         </div>
                                     </div>
-                                {% else %}
-                                    Agent #{{ tx.picked_by }}
+                                {% elif tx.picked_by %}
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-hand-paper fa-lg text-primary me-3"></i>
+                                        <div>
+                                            <strong>Agent ID: {{ tx.picked_by }}</strong>
+                                            {% if tx.picked_at %}
+                                                <br><small class="text-muted">at {{ tx.picked_at|format_date }}</small>
+                                            {% endif %}
+                                        </div>
+                                    </div>
                                 {% endif %}
                             </td>
                         </tr>
