@@ -186,14 +186,35 @@ def create_app():
             return str(value)
 
     @app.template_filter('truncate')
-    def truncate_filter(value, length=50, end='...'):
-        """Truncate a string"""
+    def truncate_filter(value, length=50, killwords=False, end='...'):
+        """Truncate a string with optional killwords parameter"""
         if not value:
             return ''
+
         value_str = str(value)
+
+        # If string is already shorter than or equal to length, return as-is
         if len(value_str) <= length:
             return value_str
-        return value_str[:length] + end
+
+        # If killwords is True or killwords is passed as a string (legacy support)
+        if killwords is True or (isinstance(killwords, str) and killwords.lower() == 'true'):
+            # Truncate exactly at length
+            return value_str[:length] + end
+
+        # Handle case where killwords might be passed as end parameter (backward compatibility)
+        if isinstance(killwords, str) and killwords not in ('true', 'false', 'True', 'False'):
+            # This means killwords was actually passed as the 'end' parameter
+            return value_str[:length] + killwords
+
+        # Otherwise, try to truncate at word boundary
+        truncated = value_str[:length]
+        last_space = truncated.rfind(' ')
+
+        if last_space > 0:
+            return truncated[:last_space] + end
+        else:
+            return truncated + end
 
     @app.template_filter('yesno')
     def yesno_filter(value):

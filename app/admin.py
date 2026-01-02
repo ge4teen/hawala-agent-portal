@@ -678,8 +678,6 @@ from sqlalchemy import text
 from datetime import datetime, timedelta
 from sqlalchemy import cast, Date, func, text
 from sqlalchemy.orm import aliased
-
-
 @admin_bp.route("/reports/daily")
 @require_role("admin")
 def reports_daily():
@@ -763,7 +761,6 @@ def reports_daily():
                            daily_summary=daily_summary_list,
                            selected_date=selected_date if selected_date else filter_date.strftime('%Y-%m-%d'),
                            now=datetime.utcnow())
-
 
 @admin_bp.route("/reports/monthly")
 @require_role("admin")

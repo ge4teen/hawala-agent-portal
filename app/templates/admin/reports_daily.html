@@ -119,16 +119,28 @@
                             {% for t in rows %}
                             <tr>
                                 <td>
-                                    <span class="badge bg-light text-dark font-monospace">{{ t.transaction_id|truncate(10, True, '...') }}</span>
+                                    <!-- FIXED: Using slice for truncation instead of filter -->
+                                    <span class="badge bg-light text-dark font-monospace" title="Transaction ID: {{ t.transaction_id }}">
+                                        {% if t.transaction_id|length > 10 %}
+                                            {{ t.transaction_id[:10] }}...
+                                        {% else %}
+                                            {{ t.transaction_id }}
+                                        {% endif %}
+                                    </span>
                                 </td>
                                 <td>
-                                    <div>{{ t.sender_name }}</div>
+                                    <div class="fw-medium">{{ t.sender_name }}</div>
                                     {% if t.sender_phone %}
-                                    <small class="text-muted">{{ t.sender_phone }}</small>
+                                    <small class="text-muted">{{ t.sender_phone|format_phone }}</small>
                                     {% endif %}
                                 </td>
-                                <td>{{ t.receiver_name }}</td>
-                                <td class="fw-bold">ZAR {{ "%.2f"|format(t.amount_local) }}</td>
+                                <td>
+                                    <div class="fw-medium">{{ t.receiver_name }}</div>
+                                    {% if t.receiver_phone %}
+                                    <small class="text-muted">{{ t.receiver_phone|format_phone }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="fw-bold text-success">ZAR {{ "%.2f"|format(t.amount_local) }}</td>
                                 <td>
                                     <span class="badge bg-info">{{ t.currency_code }}</span>
                                 </td>
@@ -144,18 +156,18 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {{ t.agent_name }}
+                                    <span class="fw-medium">{{ t.agent_name }}</span>
                                 </td>
                                 <td>
                                     {% if t.timestamp %}
-                                    <small>{{ t.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                                    <small class="text-muted">{{ t.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
                                     {% else %}
                                     <small class="text-muted">N/A</small>
                                     {% endif %}
                                 </td>
                                 <td>
                                     <a href="{{ url_for('admin.view_transaction', txid=t.transaction_id) }}"
-                                       class="btn btn-sm btn-outline-primary">
+                                       class="btn btn-sm btn-outline-primary" title="View Details">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                 </td>
@@ -200,8 +212,8 @@
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-sm">
-                    <thead>
+                <table class="table table-sm table-hover">
+                    <thead class="table-light">
                         <tr>
                             <th>Date</th>
                             <th>Transactions</th>
@@ -212,9 +224,15 @@
                     <tbody>
                         {% for day in daily_summary %}
                         <tr>
-                            <td>{{ day.day }}</td>
+                            <td>
+                                {% if day.day == filter_date %}
+                                    <strong>{{ day.day.strftime('%Y-%m-%d') }} (Selected)</strong>
+                                {% else %}
+                                    {{ day.day.strftime('%Y-%m-%d') }}
+                                {% endif %}
+                            </td>
                             <td>{{ day.count }}</td>
-                            <td>ZAR {{ "%.2f"|format(day.total) }}</td>
+                            <td class="fw-medium">ZAR {{ "%.2f"|format(day.total) }}</td>
                             <td>ZAR {{ "%.2f"|format((day.total / day.count) if day.count > 0 else 0) }}</td>
                         </tr>
                         {% endfor %}
@@ -231,27 +249,51 @@ function exportToCSV() {
     let csv = [];
     let rows = document.querySelectorAll("table tbody tr");
 
+    // Only export if there are rows (skip the "No transactions" row)
+    if (rows.length === 1 && rows[0].cells.length === 1) {
+        alert("No data to export");
+        return;
+    }
+
     // Add headers
-    csv.push(['Transaction ID', 'Sender', 'Receiver', 'Amount (ZAR)', 'Currency', 'Status', 'Agent', 'Time']);
+    csv.push(['Transaction ID', 'Sender Name', 'Sender Phone', 'Receiver Name', 'Receiver Phone',
+              'Amount (ZAR)', 'Currency', 'Status', 'Agent', 'Timestamp']);
 
     // Add data rows
     rows.forEach(row => {
-        if (row.cells.length > 1) {
+        if (row.cells.length > 1) { // Skip empty row
             let cols = [];
-            for(let i = 0; i < row.cells.length - 1; i++) { // Skip actions column
-                let text = row.cells[i].innerText.trim();
-                cols.push(text.includes(',') ? `"${text}"` : text);
-            }
+            // Get data from each cell
+            cols.push(row.cells[0].querySelector('.badge').title.replace('Transaction ID: ', '')); // Full transaction ID
+            cols.push(row.cells[1].querySelector('.fw-medium').textContent.trim()); // Sender name
+            cols.push(row.cells[1].querySelector('small') ? row.cells[1].querySelector('small').textContent.trim() : '');
+            cols.push(row.cells[2].querySelector('.fw-medium').textContent.trim()); // Receiver name
+            cols.push(row.cells[2].querySelector('small') ? row.cells[2].querySelector('small').textContent.trim() : '');
+            cols.push(row.cells[3].textContent.replace('ZAR ', '').trim()); // Amount
+            cols.push(row.cells[4].textContent.trim()); // Currency
+            cols.push(row.cells[5].textContent.trim()); // Status
+            cols.push(row.cells[6].textContent.trim()); // Agent
+            cols.push(row.cells[7].textContent.trim()); // Timestamp
+
             csv.push(cols);
         }
     });
 
     // Create and download CSV file
-    let csvContent = csv.map(row => row.join(',')).join('\n');
-    let blob = new Blob([csvContent], { type: 'text/csv' });
+    let csvContent = csv.map(row => row.map(cell => {
+        // Handle cells with commas or quotes
+        if (cell.includes(',') || cell.includes('"') || cell.includes('\n')) {
+            return '"' + cell.replace(/"/g, '""') + '"';
+        }
+        return cell;
+    }).join(',')).join('\n');
+
+    let blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     let url = window.URL.createObjectURL(blob);
     let a = document.createElement('a');
     a.href = url;
+
+    // Generate filename with date
     let filename = 'daily_report_';
     {% if selected_date %}
         filename += '{{ selected_date }}';
@@ -259,19 +301,31 @@ function exportToCSV() {
         filename += '{{ now.strftime("%Y-%m-%d") }}';
     {% endif %}
     filename += '.csv';
+
     a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
 }
+
+// Add keyboard shortcut for export (Ctrl+E)
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        exportToCSV();
+    }
+});
 </script>
 
 <style>
 .badge-warning { background-color: #ffc107; color: #000; }
 .badge-success { background-color: #28a745; color: #fff; }
 .badge-danger { background-color: #dc3545; color: #fff; }
-.card { border-radius: 10px; }
-.table th { font-weight: 600; }
+.badge-info { background-color: #17a2b8; color: #fff; }
+.card { border-radius: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+.table th { font-weight: 600; background-color: #f8f9fa; }
 .font-monospace { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; }
+.table-hover tbody tr:hover { background-color: rgba(0,123,255,0.05); }
 </style>
 {% endblock %}
