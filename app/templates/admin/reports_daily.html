@@ -8,7 +8,7 @@
                 {% if selected_date %}
                     {{ selected_date }}
                 {% else %}
-                    Today: {{ now().strftime('%Y-%m-%d') if now else '' }}
+                    Today: {{ now.strftime('%Y-%m-%d') if now else '' }}
                 {% endif %}
             </p>
         </div>
