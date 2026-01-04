@@ -80,8 +80,6 @@ def transactions():
     return render_template("admin/transactions.html", txs=txs)
 
 
-from aws_sns import sns_client  # ADD THIS IMPORT
-
 
 @admin_bp.route("/transactions/create", methods=["GET", "POST"])
 @require_role("admin")

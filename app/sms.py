@@ -181,7 +181,7 @@ def send_transaction_sms_notification(transaction, agent_name=None):
     Returns:
         dict: SMS sending result
     """
-    from aws_sns import sns_client
+
 
     if not transaction.receiver_phone:
         return {"success": False, "error": "No receiver phone number"}
