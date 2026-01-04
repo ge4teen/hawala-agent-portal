@@ -16,10 +16,11 @@ db = SQLAlchemy()
 login_manager = LoginManager()
 
 # ✅ NEW: Import SNS client (initialization happens in create_app)
-from aws_sns import sns_client
+
 
 
 def create_app():
+    from aws_sns import sns_client
     app = Flask(__name__, static_folder="static", template_folder="templates")
 
     # ============ DEBUG: ENVIRONMENT CHECK ============
