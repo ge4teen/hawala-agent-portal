@@ -222,4 +222,3 @@ class SNSClient:
 
 # Global instance
 sns_client = SNSClient()
-global sns_client

@@ -181,14 +181,14 @@ def send_transaction_sms_notification(transaction, agent_name=None):
     Returns:
         dict: SMS sending result
     """
-    from app.aws_sns import sns_client
+    from aws_sns import sns_client
 
     if not transaction.receiver_phone:
         return {"success": False, "error": "No receiver phone number"}
 
     # Get agent name if not provided
     if not agent_name and transaction.agent_id:
-        from app.models import User
+        from models import User
         agent = User.query.get(transaction.agent_id)
         agent_name = agent.full_name if agent else f"Agent #{transaction.agent_id}"
 
