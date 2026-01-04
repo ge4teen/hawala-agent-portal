@@ -15,6 +15,9 @@ if not os.environ.get("RAILWAY_ENVIRONMENT") and not os.environ.get("RAILWAY_PRO
 db = SQLAlchemy()
 login_manager = LoginManager()
 
+# ✅ NEW: Import SNS client (initialization happens in create_app)
+from aws_sns import sns_client
+
 
 def create_app():
     app = Flask(__name__, static_folder="static", template_folder="templates")
@@ -48,6 +51,23 @@ def create_app():
     if not db_vars_found:
         print("  ❌ No database environment variables found!")
 
+    # ✅ NEW: Check AWS SNS Configuration
+    print("\n📡 AWS SNS Configuration Check:")
+    aws_keys_found = all([
+        os.environ.get("AWS_ACCESS_KEY_ID"),
+        os.environ.get("AWS_SECRET_ACCESS_KEY"),
+        os.environ.get("AWS_REGION"),
+        os.environ.get("AWS_SNS_TOPIC_ARN")
+    ])
+
+    if aws_keys_found:
+        print("  ✅ All AWS SNS environment variables found")
+        print(f"  Region: {os.environ.get('AWS_REGION')}")
+        print(f"  Topic ARN: {os.environ.get('AWS_SNS_TOPIC_ARN')[:50]}...")
+    else:
+        print("  ⚠️ AWS SNS environment variables missing or incomplete")
+        print("  SNS notifications will be disabled")
+
     print(f"{'=' * 60}\n")
     # ============ END DEBUG ============
 
@@ -61,6 +81,12 @@ def create_app():
     # ClickSend config
     app.config["CLICKSEND_USERNAME"] = os.environ.get("CLICKSEND_USERNAME")
     app.config["CLICKSEND_API_KEY"] = os.environ.get("CLICKSEND_API_KEY")
+
+    # ✅ NEW: AWS SNS Configuration
+    app.config["AWS_ACCESS_KEY_ID"] = os.environ.get("AWS_ACCESS_KEY_ID")
+    app.config["AWS_SECRET_ACCESS_KEY"] = os.environ.get("AWS_SECRET_ACCESS_KEY")
+    app.config["AWS_REGION"] = os.environ.get("AWS_REGION", "af-south-1")
+    app.config["AWS_SNS_TOPIC_ARN"] = os.environ.get("AWS_SNS_TOPIC_ARN")
 
     # Database configuration - CRITICAL FIX
     database_url = os.environ.get("DATABASE_URL")
@@ -110,6 +136,14 @@ def create_app():
     login_manager.login_view = 'auth.login'
     login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
+
+    # ✅ NEW: Initialize SNS Client
+    try:
+        sns_client.init_app(app)
+        print("✅ AWS SNS client initialized")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize SNS client: {e}")
+        print("   SNS notifications will be disabled")
 
     # ===== CRITICAL: ADD USER LOADER FOR FLASK-LOGIN =====
     @login_manager.user_loader
@@ -305,6 +339,14 @@ def create_app():
         from flask_login import current_user
         return {'current_user': current_user}
 
+    # ✅ NEW: Add SNS status to templates (optional)
+    @app.context_processor
+    def inject_sns_status():
+        """Add SNS status to templates"""
+        return {
+            'sns_enabled': sns_client.sns is not None and sns_client.topic_arn is not None
+        }
+
     # Register blueprints
     from .auth import auth_bp
     from .admin import admin_bp
@@ -351,6 +393,13 @@ def create_app():
         print("🌐 Running on Railway with PostgreSQL")
     else:
         print("💻 Running locally with SQLite")
+
+    # ✅ NEW: SNS Status
+    if sns_client.sns and sns_client.topic_arn:
+        print("📡 AWS SNS: ✅ Enabled")
+    else:
+        print("📡 AWS SNS: ⚠️ Disabled (missing configuration)")
+
     print(f"{'=' * 60}")
 
     return app
@@ -397,6 +446,8 @@ def seed_database():
             ('system_name', 'Hawala Exchange System'),
             ('default_currency', 'ZAR'),
             ('exchange_rate_margin', '0.02'),
+            ('sns_notifications_enabled', 'true'),  # ✅ NEW: SNS setting
+            ('low_balance_threshold', '1000'),  # ✅ NEW: Low balance threshold
         ]
 
         settings_created = 0
@@ -424,9 +475,9 @@ def seed_database():
 
         # Create initial dollar balance
         if not DollarBalance.query.first():
-            balance = DollarBalance(current_balance=0.00)
+            balance = DollarBalance(current_balance=10000.00)  # ✅ Start with $10,000
             db.session.add(balance)
-            print("    Created initial dollar balance: $0.00")
+            print("    Created initial dollar balance: $10,000.00")
         else:
             print("    Dollar balance already exists, skipping")
 
