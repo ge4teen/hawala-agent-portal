@@ -20,8 +20,9 @@ login_manager = LoginManager()
 
 
 def create_app():
-    from aws_sns import SNSClient
+
     app = Flask(__name__, static_folder="static", template_folder="templates")
+    from aws_sns import sns_client
 
     # ============ DEBUG: ENVIRONMENT CHECK ============
     print(f"\n{'=' * 60}")
