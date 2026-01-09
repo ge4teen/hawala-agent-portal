@@ -2,8 +2,7 @@ import json
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, session, redirect, request, url_for, flash, current_app, jsonify
 from sqlalchemy import func, desc, or_, and_, extract, cast, Date
-from aws_sns import send_sns_notification
-
+from aws_sns import send_sns_notification, sns_client
 
 from .helpers import generate_unique_txid
 from .sms import send_sms, build_sms_template
