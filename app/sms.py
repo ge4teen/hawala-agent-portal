@@ -6,89 +6,15 @@ from flask import current_app
 logger = logging.getLogger(__name__)
 
 
+from twilio_sms_service import TwilioSMSService
+
+service = TwilioSMSService()
+
 def send_sms(to_number: str, message: str):
     """
-    Send SMS using ClickSend API
-
-    Args:
-        to_number: Phone number with country code (e.g., +27731234567)
-        message: SMS message content
-
-    Returns:
-        dict: Response from ClickSend API or error dict
+    Signature unchanged. Drop-in replacement for ClickSend.
     """
-    username = current_app.config.get("CLICKSEND_USERNAME")
-    api_key = current_app.config.get("CLICKSEND_API_KEY")
-
-    if not username or not api_key:
-        error_msg = "ClickSend credentials not configured"
-        logger.error(error_msg)
-        return {"error": error_msg, "success": False}
-
-    # Clean phone number
-    to_number = clean_phone_number(to_number)
-
-    if not to_number:
-        error_msg = "Invalid phone number format"
-        logger.error(error_msg)
-        return {"error": error_msg, "success": False}
-
-    url = "https://rest.clicksend.com/v3/sms/send"
-    payload = {
-        "messages": [{
-            "source": "hawala_system",
-            "body": message,
-            "to": to_number
-        }]
-    }
-
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-    }
-
-    try:
-        logger.info(f"📱 Sending SMS to {to_number}: {message[:50]}...")
-        resp = requests.post(
-            url,
-            json=payload,
-            auth=(username, api_key),
-            headers=headers,
-            timeout=15
-        )
-        resp.raise_for_status()
-
-        result = resp.json()
-
-        if result.get("response_code") == "SUCCESS":
-            logger.info(f"✅ SMS sent successfully to {to_number}")
-            return {
-                "success": True,
-                "message_id": result.get("data", {}).get("messages", [{}])[0].get("message_id"),
-                "status": result.get("data", {}).get("messages", [{}])[0].get("status"),
-                "raw_response": result
-            }
-        else:
-            logger.error(f"❌ SMS failed: {result}")
-            return {
-                "success": False,
-                "error": result.get("response_msg", "Unknown error"),
-                "raw_response": result
-            }
-
-    except requests.exceptions.Timeout:
-        error_msg = "ClickSend API timeout"
-        logger.error(error_msg)
-        return {"error": error_msg, "success": False}
-    except requests.exceptions.RequestException as e:
-        error_msg = f"ClickSend API error: {str(e)}"
-        logger.error(error_msg)
-        return {"error": error_msg, "success": False}
-    except Exception as e:
-        error_msg = f"Unexpected error: {str(e)}"
-        logger.error(error_msg)
-        return {"error": error_msg, "success": False}
-
+    return service.send_sms(to_number, message)
 
 def clean_phone_number(phone: str) -> str:
     """

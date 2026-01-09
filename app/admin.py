@@ -2,7 +2,8 @@ import json
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, session, redirect, request, url_for, flash, current_app, jsonify
 from sqlalchemy import func, desc, or_, and_, extract, cast, Date
-from sqlalchemy.sql import text
+from aws_sns import send_sns_notification
+
 
 from .helpers import generate_unique_txid
 from .sms import send_sms, build_sms_template
@@ -1155,6 +1156,15 @@ def verify_transaction(txid):
         db.session.add(log)
 
         db.session.commit()
+        # Publish SNS notification
+        send_sns_notification(
+            txid=txid,
+            action="verified",
+            admin_name=admin_id,
+            amount=tx.amount_local,
+            agent_id=tx.agent_id
+        )
+
         flash(f"Transaction {txid} verified by {admin_name}", "success")
 
     except Exception as e:
@@ -1195,6 +1205,13 @@ def mark_completed(txid):
         db.session.add(log)
 
         db.session.commit()
+        send_sns_notification(
+            txid=txid,
+            action="completed",
+            admin_name=admin_id,
+            amount=tx.amount_local,
+            agent_id=tx.agent_id
+        )
         flash(f"Transaction {txid} marked as completed by admin", "success")
 
     except Exception as e:

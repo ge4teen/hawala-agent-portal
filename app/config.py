@@ -6,11 +6,7 @@ BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class Config:
     # AWS SNS Configuration
-    AWS_ACCESS_KEY_ID = os.environ.get('AWS_ACCESS_KEY_ID')
-    AWS_SECRET_ACCESS_KEY = os.environ.get('AWS_SECRET_ACCESS_KEY')
-    AWS_REGION = os.environ.get('AWS_REGION', 'af-south-1')
-    AWS_SNS_TOPIC_ARN = os.environ.get('AWS_SNS_TOPIC_ARN')
-    SECRET_KEY = os.environ.get("SECRET_KEY", "mysecret123")
+
 
     # Get DATABASE_URL from Railway environment variable
     DATABASE_URL = os.environ.get("DATABASE_URL")
